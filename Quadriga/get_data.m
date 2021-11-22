@@ -1,14 +1,12 @@
-function output = our()
-    close all
-    clear all
-    
+
+function output = get_data(fc)
     l = qd_layout;                                          % Create new QuaDRIGa layout
-    l.simpar.center_frequency = 2e9;                        % Set center frequency to 2 GHz
+    l.simpar.center_frequency = fc;                        % Set center frequency to 2 GHz
     l.simpar.use_absolute_delays = 1;                       % Enables true LOS delay
     l.simpar.show_progress_bars = 1;                        % Disable progress bars
-    l.tx_position = [ 0,0,10 ]';                            % Set BS posittions
+    l.tx_position = [0, 0, 10]';                            % Set BS posittions
     
-    l.rx_track = qd_track( 'linear' , 50, pi/2 );           % 50 m long track going north
+    l.rx_track = qd_track( 'linear' , 50, pi/2);           % 50 m long track going north
     l.rx_track.initial_position = [20 ; 30 ; 1.5 ];         % Set start position and MT height
     l.rx_track.interpolate_positions(10);                   % One channel sample every 10 cm
     l.rx_track.scenario = '3GPP_38.901_UMi_NLOS';           % Set propagation scenario
@@ -27,5 +25,4 @@ function output = our()
     output{1} = b.AoA;
     output{2} = b.AoD;
     output{3} = c.coeff;
-    
 end
