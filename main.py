@@ -7,6 +7,7 @@
 # %% Imports
 import os
 import numpy as np
+import scipy
 
 # %% Global Parameters
 RUN = False
