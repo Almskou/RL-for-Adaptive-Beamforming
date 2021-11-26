@@ -28,7 +28,7 @@ if __name__ == "__main__":
     Nt = 10
     Nr = 10
 
-    fc = 20e9  # Center frequncy
+    fc = 28e9  # Center frequncy
     lambda_ = 3e9 / fc
 
     # Load the data
@@ -56,20 +56,18 @@ if __name__ == "__main__":
     AoD = tmp[1]  # Angle of Depature
     coeff = tmp[2]  # Channel Coeffiecents
 
+    print("Starts calculating")
     # Make ULA
     N = 10  # Number of antennas
     r = np.zeros((2, N))
     r[0, :] = np.linspace(0, (N - 1) * lambda_ / 2, N)
 
-    print("Calculating H")
-    alpha_rx = steering_vectors2d(dir=-1, theta=AoA[0, :], r=r, lambda_=lambda_)
-    alpha_tx = steering_vectors2d(dir=1, theta=AoD[0, :], r=r, lambda_=lambda_)
-    beta = coeff[0, :]
-    H = np.zeros((Nr, Nr), dtype=np.complex128)
-    for i in range(len(beta)):
-        H += np.sqrt(Nr * Nt) * beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
-    print("Done")
+    # Empty arrays
+    beam_t = np.zeros(np.shape(AoA)[0])
+    beam_r = np.zeros(np.shape(AoA)[0])
+    R = np.zeros((Nt, Nr, np.shape(AoA)[0]))
 
+    # print("Calculating R")
     F = np.zeros((Nt, Nt), dtype=np.complex128)
     W = np.zeros((Nr, Nr), dtype=np.complex128)
 
@@ -79,7 +77,25 @@ if __name__ == "__main__":
     for q in range(Nr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * (2 * q - 1 - Nr) / Nr)
 
-    R = np.zeros((Nt, Nr))
-    for p in range(Nt):
-        for q in range(Nr):
-            R[p, q] = np.linalg.norm(np.sqrt(100000)*np.conjugate(W[q, :]).T @ H @ F[p, :])**2
+    for j in range(np.shape(AoA)[0]):
+        # print("Calculating H")
+        alpha_rx = steering_vectors2d(dir=-1, theta=AoA[j, :], r=r, lambda_=lambda_)
+        alpha_tx = steering_vectors2d(dir=1, theta=AoD[j, :], r=r, lambda_=lambda_)
+        beta = coeff[j, :]
+        H = np.zeros((Nr, Nr), dtype=np.complex128)
+
+        for i in range(len(beta)):
+            H += np.sqrt(Nr * Nt) * beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
+
+        for p in range(Nt):
+            for q in range(Nr):
+                R[p, q, j] = np.linalg.norm(np.sqrt(100000)*np.conjugate(W[q, :]).T @ H @ F[p, :])**2
+
+        # print("Calculating Angles")
+        index = np.unravel_index(np.argmax(R[:, :, j], axis=None), (Nt, Nr))
+
+        beam_t[j] = np.arccos(1-(2*index[0]/(Nt-1)))*180/np.pi
+        beam_r[j] = np.arccos(1-(2*index[1]/(Nr-1)))*180/np.pi
+        # print(f"Reiver beam dir: {beam_r}\nTransmitter beam dir: {beam_t}")
+
+    print("Done")
