@@ -8,6 +8,7 @@
 import os
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 # %% Global Parameters
 RUN = False
@@ -76,6 +77,23 @@ if __name__ == "__main__":
 
     for q in range(Nr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * (2 * q - 1 - Nr) / Nr)
+
+    # Calculating the directivity for a page in DFT-codebook
+    beam_1 = np.zeros(1000)
+    Theta = np.linspace(0, np.pi, 1000)
+    # Sweep over range of angles, to calculate the angle with maximum "gain"
+    for i in range(1000):
+        # Hardcode the array steering vector for a ULA with 10 elements
+        A = np.exp(-1j * np.pi * np.cos(Theta[i]) * np.linspace(0, 9, 10))
+        # The "gain" is found by multiplying the code-page with the steering vector
+        beam_1[i] = np.abs(np.conjugate(F[9, :]).T @ A)
+        # Calculate the angle with max "gain".
+        max_angle = 180 - np.arccos(np.angle(F[9, 1]) / (1*np.pi)) * (180 / np.pi)
+
+    # Plot the "gain"
+    plt.plot(Theta * 180 / np.pi, beam_1)
+    plt.vlines(max_angle, 0, np.max(beam_1), colors='r')
+    plt.show()
 
     for j in range(np.shape(AoA)[0]):
         # print("Calculating H")
