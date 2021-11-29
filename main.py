@@ -10,63 +10,43 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+import classes
+import helpers
+
 # %% Global Parameters
 RUN = False
-
-
-# %% Functions
-
-
-def steering_vectors2d(dir, theta, r, lambda_):
-    e = dir * np.matrix([np.cos(theta), np.sin(theta)])
-    return np.exp(-2j * (np.pi / lambda_) * e.T @ r)
-
-
-def plot_directivity(W, N, title):
-    # Calculating the directivity for a page in DFT-codebook
-    beam = np.zeros((len(W), N))
-    Theta = np.linspace(0, np.pi, N)
-    # Sweep over range of angles, to calculate the angle with maximum "gain"
-    for i in range(N):
-        # Hardcode the array steering vector for a ULA with 10 elements
-        A = np.exp(-1j * np.pi * np.cos(Theta[i]) * np.arange(0, len(W)))
-
-        for j in range(len(W)):
-            # The "gain" is found by multiplying the code-page with the steering vector
-            beam[j, i] = np.abs(np.conjugate(W[j, :]).T @ A)
-
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-    ax.set_title(title)
-    for j in range(len(W)):
-        # Calculate the angle with max "gain".
-        max_angle = np.pi - np.arccos(np.angle(W[j, 1]) / np.pi)
-
-        # Plot the "gain"
-        ax.plot(Theta, beam[j, :], label=f"{j}")
-        ax.vlines(max_angle, 0, np.max(beam[j, :]),
-                  colors='r', linestyles="dashed",
-                  alpha=0.4)
-
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
-              ncol=4)
-    plt.show()
 
 
 # %% main
 if __name__ == "__main__":
 
-    # Parameters:
-    Nt = 10
-    Nr = 10
+    # Number of steps in a episode
+    N = 100
+
+    # Radius for commuication range [m]
+    r_lim = 200
+
+    # Stepsize limits [min, max]
+    stepsize = [0.5, 100]
+
+    # Number of episodes
+    M = 2
+
+    # Number of antennae
+    Nt = 10  # Transmitter
+    Nr = 10  # Receiver
 
     fc = 28e9  # Center frequncy
-    lambda_ = 3e9 / fc
+    lambda_ = 3e8 / fc
 
     # Load the data
     if not RUN:
         try:
             print("Loading data")
-            tmp = np.load("tmp.npy", allow_pickle=True)
+            data = np.load("data.npy", allow_pickle=True)
+            tmp = data[0]
+            pos_log = data[1]
+
         except IOError:
             RUN = True
             print("Datafile not found")
@@ -75,11 +55,28 @@ if __name__ == "__main__":
         # Run the scenario to get the simulated channel parameters
         from oct2py import octave
 
+        print("Creating track")
+        # Create the class
+        track = classes.Track(r_lim, stepsize)
+
+        # Create the tracks
+        pos_log = []
+        for m in range(M):
+            pos_log.append(track.run(N))
+
         print("Creating new data")
         # Add Quadriga folder to octave path
         octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
-        tmp = octave.get_data(fc)
-        np.save("tmp.npy", tmp)
+        tmp = octave.get_data(fc, pos_log)
+
+        # Save the data
+        data_tmp = []
+        data_tmp.append(tmp)
+        data_tmp.append(pos_log)
+        data = np.empty(len(data_tmp), dtype=object)
+        data[:] = data_tmp
+
+        np.save("data.npy", data)
 
     # Extract data
     print("Extracting data")
@@ -113,8 +110,8 @@ if __name__ == "__main__":
 
     for j in range(np.shape(AoA)[0]):
         # print("Calculating H")
-        alpha_rx = steering_vectors2d(dir=-1, theta=AoA[j, :], r=r_r, lambda_=lambda_)
-        alpha_tx = steering_vectors2d(dir=1, theta=AoD[j, :], r=r_t, lambda_=lambda_)
+        alpha_rx = helpers.steering_vectors2d(dir=-1, theta=AoA[j, :], r=r_r, lambda_=lambda_)
+        alpha_tx = helpers.steering_vectors2d(dir=1, theta=AoD[j, :], r=r_t, lambda_=lambda_)
         beta = coeff[j, :]
         H = np.zeros((Nr, Nt), dtype=np.complex128)
 
@@ -142,8 +139,8 @@ if __name__ == "__main__":
     # %% PLOT
 
     # Plot the directivity
-    plot_directivity(W, 1000, "Receiver")
-    plot_directivity(F, 1000, "Transmitter")
+    helpers.plot_directivity(W, 1000, "Receiver")
+    helpers.plot_directivity(F, 1000, "Transmitter")
 
     # Plot the beam direction for the receiver and transmitter
     plt.figure()
@@ -155,3 +152,12 @@ if __name__ == "__main__":
     plt.title("Transmitter")
     plt.plot(np.linspace(0, 2*np.pi, len(beam_t)),
              beam_t)
+
+    fig, ax = plt.subplots()
+    ax.set_title("Kunst")
+    ax.add_patch(plt.Circle((0, 0), 200, color='r', alpha=0.1))
+    for m in range(M):
+        ax.plot(pos_log[m][0, :], pos_log[m][1, :])
+
+    ax.set_xlim([-200, 200])
+    ax.set_ylim([-200, 200])

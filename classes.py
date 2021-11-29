@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 29 12:43:45 2021
-
-@author: almsk
+@author: Dennis Sand, Nicolai Almskou,
+         Peter Fisker & Victor Nissen
 """
 
+# %% Imports
 import numpy as np
-import matplotlib.pyplot as plt
 
 
+# %% Classes
 class Track():
     def __init__(self, lim, stepsize):
         self.lim = lim
@@ -48,21 +48,3 @@ class Track():
             n += 1
 
         return np.delete(pos_log, np.s_[n:], axis=1)
-
-
-if __name__ == "__main__":
-    N = 10000
-    track = Track(200, [0.5, 5])
-
-    M = 5
-    pos_log = []
-
-    fig, ax = plt.subplots()
-    ax.set_title("Kunst")
-    ax.add_patch(plt.Circle((0, 0), 200, color='r', alpha=0.1))
-    for m in range(M):
-        pos_log.append(track.run(N))
-        ax.plot(pos_log[m][0, :], pos_log[m][1, :])
-
-    ax.set_xlim([-200, 200])
-    ax.set_ylim([-200, 200])
