@@ -119,7 +119,7 @@ if __name__ == "__main__":
         alpha_rx = steering_vectors2d(dir=-1, theta=AoA[j, :], r=r_r, lambda_=lambda_)
         alpha_tx = steering_vectors2d(dir=1, theta=AoD[j, :], r=r_t, lambda_=lambda_)
         beta = coeff[j, :]
-        H = np.zeros((Nr, Nr), dtype=np.complex128)
+        H = np.zeros((Nr, Nt), dtype=np.complex128)
 
         for i in range(len(beta)):
             H += np.sqrt(Nr * Nt) * beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
