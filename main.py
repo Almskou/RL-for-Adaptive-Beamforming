@@ -47,7 +47,8 @@ def plot_directivity(W, N, title):
                   colors='r', linestyles="dashed",
                   alpha=0.4)
 
-    ax.legend(ncol=4)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+              ncol=4)
     plt.show()
 
 
@@ -55,7 +56,7 @@ def plot_directivity(W, N, title):
 if __name__ == "__main__":
 
     # Parameters:
-    Nt = 20
+    Nt = 10
     Nr = 10
 
     fc = 28e9  # Center frequncy
@@ -105,14 +106,10 @@ if __name__ == "__main__":
     W = np.zeros((Nr, Nr), dtype=np.complex128)
 
     for p in range(Nt):
-        F[p, :] = (1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * (2 * p - 1 - Nt) / Nt)
+        F[p, :] = (1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nt) / Nt))
 
     for q in range(Nr):
-        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * (2 * q - 1 - Nr) / Nr)
-
-    # Plot the directivity
-    plot_directivity(W, 1000, "Receiver")
-    plot_directivity(F, 1000, "Transmitter")
+        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nr) / Nr))
 
     for j in range(np.shape(AoA)[0]):
         # print("Calculating H")
@@ -122,7 +119,8 @@ if __name__ == "__main__":
         H = np.zeros((Nr, Nt), dtype=np.complex128)
 
         for i in range(len(beta)):
-            H += np.sqrt(Nr * Nt) * beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
+            H += beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
+        H = H*np.sqrt(Nr * Nt)
 
         for p in range(Nt):
             for q in range(Nr):
@@ -131,8 +129,29 @@ if __name__ == "__main__":
         # print("Calculating Angles")
         index = np.unravel_index(np.argmax(R[:, :, j], axis=None), (Nt, Nr))
 
-        beam_t[j] = np.arccos(1-(2*index[0]/(Nt-1)))*180/np.pi
-        beam_r[j] = np.arccos(1-(2*index[1]/(Nr-1)))*180/np.pi
+        # Equation 9 & 10 in "A Deep Learning Approach to Locatio"
+        # Page 8
+        beam_t[j] = np.arccos((2*index[0]-Nt)/Nt)*180/np.pi
+        beam_r[j] = 180 - np.arccos((2*index[1]-Nr)/Nr)*180/np.pi
+        # OLD: np.arccos(1-(2*index[1]/(Nr-1)))*180/np.pi
+
         # print(f"Reiver beam dir: {beam_r}\nTransmitter beam dir: {beam_t}")
 
     print("Done")
+
+    # %% PLOT
+
+    # Plot the directivity
+    plot_directivity(W, 1000, "Receiver")
+    plot_directivity(F, 1000, "Transmitter")
+
+    # Plot the beam direction for the receiver and transmitter
+    plt.figure()
+    plt.title("Receiver")
+    plt.plot(np.linspace(0, 2*np.pi, len(beam_r)),
+             beam_r)
+
+    plt.figure()
+    plt.title("Transmitter")
+    plt.plot(np.linspace(0, 2*np.pi, len(beam_t)),
+             beam_t)
