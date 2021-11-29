@@ -22,11 +22,40 @@ def steering_vectors2d(dir, theta, r, lambda_):
     return np.exp(-2j * (np.pi / lambda_) * e.T @ r)
 
 
+def plot_directivity(W, N, title):
+    # Calculating the directivity for a page in DFT-codebook
+    beam = np.zeros((len(W), N))
+    Theta = np.linspace(0, np.pi, N)
+    # Sweep over range of angles, to calculate the angle with maximum "gain"
+    for i in range(N):
+        # Hardcode the array steering vector for a ULA with 10 elements
+        A = np.exp(-1j * np.pi * np.cos(Theta[i]) * np.arange(0, len(W)))
+
+        for j in range(len(W)):
+            # The "gain" is found by multiplying the code-page with the steering vector
+            beam[j, i] = np.abs(np.conjugate(W[j, :]).T @ A)
+
+    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+    ax.set_title(title)
+    for j in range(len(W)):
+        # Calculate the angle with max "gain".
+        max_angle = np.pi - np.arccos(np.angle(W[j, 1]) / np.pi)
+
+        # Plot the "gain"
+        ax.plot(Theta, beam[j, :], label=f"{j}")
+        ax.vlines(max_angle, 0, np.max(beam[j, :]),
+                  colors='r', linestyles="dashed",
+                  alpha=0.4)
+
+    ax.legend(ncol=4)
+    plt.show()
+
+
 # %% main
 if __name__ == "__main__":
 
     # Parameters:
-    Nt = 10
+    Nt = 20
     Nr = 10
 
     fc = 28e9  # Center frequncy
@@ -58,10 +87,13 @@ if __name__ == "__main__":
     coeff = tmp[2]  # Channel Coeffiecents
 
     print("Starts calculating")
-    # Make ULA
-    N = 10  # Number of antennas
-    r = np.zeros((2, N))
-    r[0, :] = np.linspace(0, (N - 1) * lambda_ / 2, N)
+    # Make ULA - Transmitter
+    r_r = np.zeros((2, Nr))
+    r_r[0, :] = np.linspace(0, (Nr - 1) * lambda_ / 2, Nr)
+
+    # Make ULA - Receiver
+    r_t = np.zeros((2, Nt))
+    r_t[0, :] = np.linspace(0, (Nt - 1) * lambda_ / 2, Nt)
 
     # Empty arrays
     beam_t = np.zeros(np.shape(AoA)[0])
@@ -78,27 +110,14 @@ if __name__ == "__main__":
     for q in range(Nr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * (2 * q - 1 - Nr) / Nr)
 
-    # Calculating the directivity for a page in DFT-codebook
-    beam_1 = np.zeros(1000)
-    Theta = np.linspace(0, np.pi, 1000)
-    # Sweep over range of angles, to calculate the angle with maximum "gain"
-    for i in range(1000):
-        # Hardcode the array steering vector for a ULA with 10 elements
-        A = np.exp(-1j * np.pi * np.cos(Theta[i]) * np.linspace(0, 9, 10))
-        # The "gain" is found by multiplying the code-page with the steering vector
-        beam_1[i] = np.abs(np.conjugate(F[9, :]).T @ A)
-        # Calculate the angle with max "gain".
-        max_angle = 180 - np.arccos(np.angle(F[9, 1]) / (1*np.pi)) * (180 / np.pi)
-
-    # Plot the "gain"
-    plt.plot(Theta * 180 / np.pi, beam_1)
-    plt.vlines(max_angle, 0, np.max(beam_1), colors='r')
-    plt.show()
+    # Plot the directivity
+    plot_directivity(W, 1000, "Receiver")
+    plot_directivity(F, 1000, "Transmitter")
 
     for j in range(np.shape(AoA)[0]):
         # print("Calculating H")
-        alpha_rx = steering_vectors2d(dir=-1, theta=AoA[j, :], r=r, lambda_=lambda_)
-        alpha_tx = steering_vectors2d(dir=1, theta=AoD[j, :], r=r, lambda_=lambda_)
+        alpha_rx = steering_vectors2d(dir=-1, theta=AoA[j, :], r=r_r, lambda_=lambda_)
+        alpha_tx = steering_vectors2d(dir=1, theta=AoD[j, :], r=r_t, lambda_=lambda_)
         beta = coeff[j, :]
         H = np.zeros((Nr, Nr), dtype=np.complex128)
 
