@@ -60,7 +60,7 @@ if __name__ == "__main__":
     Nr = 10
 
     fc = 28e9  # Center frequncy
-    lambda_ = 3e9 / fc
+    lambda_ = 3e8 / fc
 
     # Load the data
     if not RUN:
