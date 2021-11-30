@@ -5,23 +5,21 @@
 """
 
 # %% Imports
-import os
-
 import numpy as np
 import matplotlib.pyplot as plt
+from time import time
 
-import classes
 import helpers
 
 # %% Global Parameters
 RUN = True
-
+ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 
 # %% main
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 20000
+    N = 5
 
     # Radius for commuication range [m]
     r_lim = 200
@@ -39,51 +37,19 @@ if __name__ == "__main__":
     fc = 28e9  # Center frequncy
     lambda_ = 3e8 / fc
 
-    # Load the data
-    if not RUN:
-        try:
-            print("Loading data")
-            data = np.load("data.npy", allow_pickle=True)
-            tmp = data[0]
-            pos_log = data[1]
-            M = len(pos_log)
-
-        except IOError:
-            RUN = True
-            print("Datafile not found")
-
-    if RUN:
-        # Run the scenario to get the simulated channel parameters
-        from oct2py import octave
-
-        print("Creating track")
-        # Create the class
-        track = classes.Track(r_lim, stepsize)
-
-        # Create the tracks
-        pos_log = []
-        for m in range(M):
-            pos_log.append(track.run(N))
-
-        print("Creating new data")
-        # Add Quadriga folder to octave path
-        octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
-        tmp = octave.get_data(fc, pos_log)
-
-        # Save the data
-        data_tmp = []
-        data_tmp.append(tmp)
-        data_tmp.append(pos_log)
-        data = np.empty(len(data_tmp), dtype=object)
-        data[:] = data_tmp
-
-        np.save("data.npy", data)
+    t_start = time()
+    # Load or create the data
+    tmp, pos_log = helpers.get_data(RUN, ENGINE,
+                                    "data_pos.mat", "data.mat",
+                                    [fc, N, M, r_lim, stepsize])
+    print(f"Took: {time()-t_start}")
+    M = len(pos_log)
 
     # Extract data
     print("Extracting data")
-    AoA = tmp[0]  # Angle of Arrival
-    AoD = tmp[1]  # Angle of Depature
-    coeff = tmp[2]  # Channel Coeffiecents
+    AoA = tmp[0][0]  # Angle of Arrival
+    AoD = tmp[1][0]  # Angle of Depature
+    coeff = tmp[2][0]  # Channel Coeffiecents
 
     print("Starts calculating")
     # Make ULA - Transmitter
