@@ -19,19 +19,19 @@ ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 5
+    N = 400
 
     # Radius for commuication range [m]
     r_lim = 200
 
     # Stepsize limits [min, max]
-    stepsize = [0.5, 1]
+    stepsize = [0.5, 5]
 
     # Number of episodes
     M = 5
 
     # Number of antennae
-    Nt = 10  # Transmitter
+    Nt = 40  # Transmitter
     Nr = 10  # Receiver
 
     fc = 28e9  # Center frequncy
@@ -50,6 +50,8 @@ if __name__ == "__main__":
     AoA = tmp[0][0]  # Angle of Arrival
     AoD = tmp[1][0]  # Angle of Depature
     coeff = tmp[2][0]  # Channel Coeffiecents
+
+    AoA_L = np.abs(np.arctan2(pos_log[0][1], pos_log[0][0]) * 180/np.pi)
 
     print("Starts calculating")
     # Make ULA - Transmitter
@@ -70,7 +72,8 @@ if __name__ == "__main__":
     W = np.zeros((Nr, Nr), dtype=np.complex128)
 
     for p in range(Nt):
-        F[p, :] = (1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nt) / Nt))
+        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi *
+                   np.arange(Nt) * ((2 * p - Nt) / Nt)))
 
     for q in range(Nr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nr) / Nr))
@@ -110,13 +113,35 @@ if __name__ == "__main__":
     helpers.plot_directivity(F, 1000, "Transmitter")
 
     # Plot the beam direction for the receiver and transmitter
+    for i in range(np.shape(AoA)[0]):
+        if i > 3:
+            if beam_r[i-2] > 90:
+                if beam_r[i-1] >= 90:
+                    if beam_r[i] == 0:
+                        beam_r[i] = 180
+            else:
+                if beam_r[i-1] <= 90:
+                    if beam_r[i] == 180:
+                        beam_r[i] = 0
+
     plt.figure()
     plt.title("Receiver")
     plt.plot(beam_r)
+    plt.plot(np.abs(180-AoA_L))
+
+    for i in range(np.shape(AoA)[0]):
+        if i > 2:
+            if beam_t[i-1] > 90:
+                if beam_t[i] == 0:
+                    beam_t[i] = 180
+            else:
+                if beam_t[i] == 180:
+                    beam_t[i] = 0
 
     plt.figure()
     plt.title("Transmitter")
     plt.plot(beam_t)
+    plt.plot(AoA_L)
 
     fig, ax = plt.subplots()
     ax.set_title("Kunst")

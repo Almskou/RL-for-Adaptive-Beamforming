@@ -130,6 +130,9 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
                 except FileNotFoundError:
                     raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
 
+            else:
+                raise Exception("Something went wrong")
+
             eng.quit()
 
         else:
