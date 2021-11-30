@@ -14,23 +14,23 @@ import classes
 import helpers
 
 # %% Global Parameters
-RUN = False
+RUN = True
 
 
 # %% main
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 100
+    N = 20000
 
     # Radius for commuication range [m]
     r_lim = 200
 
     # Stepsize limits [min, max]
-    stepsize = [0.5, 100]
+    stepsize = [0.5, 1]
 
     # Number of episodes
-    M = 2
+    M = 5
 
     # Number of antennae
     Nt = 10  # Transmitter
@@ -46,6 +46,7 @@ if __name__ == "__main__":
             data = np.load("data.npy", allow_pickle=True)
             tmp = data[0]
             pos_log = data[1]
+            M = len(pos_log)
 
         except IOError:
             RUN = True
@@ -113,8 +114,8 @@ if __name__ == "__main__":
         alpha_rx = helpers.steering_vectors2d(dir=-1, theta=AoA[j, :], r=r_r, lambda_=lambda_)
         alpha_tx = helpers.steering_vectors2d(dir=1, theta=AoD[j, :], r=r_t, lambda_=lambda_)
         beta = coeff[j, :]
-        H = np.zeros((Nr, Nt), dtype=np.complex128)
 
+        H = np.zeros((Nr, Nt), dtype=np.complex128)
         for i in range(len(beta)):
             H += beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
         H = H*np.sqrt(Nr * Nt)
@@ -145,19 +146,17 @@ if __name__ == "__main__":
     # Plot the beam direction for the receiver and transmitter
     plt.figure()
     plt.title("Receiver")
-    plt.plot(np.linspace(0, 2*np.pi, len(beam_r)),
-             beam_r)
+    plt.plot(beam_r)
 
     plt.figure()
     plt.title("Transmitter")
-    plt.plot(np.linspace(0, 2*np.pi, len(beam_t)),
-             beam_t)
+    plt.plot(beam_t)
 
     fig, ax = plt.subplots()
     ax.set_title("Kunst")
-    ax.add_patch(plt.Circle((0, 0), 200, color='r', alpha=0.1))
+    ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
     for m in range(M):
         ax.plot(pos_log[m][0, :], pos_log[m][1, :])
 
-    ax.set_xlim([-200, 200])
-    ax.set_ylim([-200, 200])
+    ax.set_xlim([-r_lim, r_lim])
+    ax.set_ylim([-r_lim, r_lim])

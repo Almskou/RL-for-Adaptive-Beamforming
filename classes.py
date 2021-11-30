@@ -43,8 +43,7 @@ class Track():
         stop = False
         n = 0
         while ((n < N) and (not stop)):
-            pos = self.take_step()
-            pos_log[:, n+1], stop = pos
+            pos_log[:, n+1], stop = self.take_step()
             n += 1
 
         return np.delete(pos_log, np.s_[n:], axis=1)
