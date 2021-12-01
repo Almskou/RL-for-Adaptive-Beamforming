@@ -130,13 +130,17 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.title("Receiver")
-    plt.plot(beam_r[0, :])
-    plt.plot(np.abs(AoA_LOS_r_LOCAL))
+    plt.plot(beam_r[0, :], label="Beam")
+    plt.plot(np.abs(AoA_LOS_r_LOCAL), label="LOS")
+    plt.legend()
+    plt.show()
 
     plt.figure()
     plt.title("Transmitter")
-    plt.plot(beam_t[0, :])
-    plt.plot(AoA_LOS_t)
+    plt.plot(beam_t[0, :], label="Beam")
+    plt.plot(AoA_LOS_t, label="LOS")
+    plt.legend()
+    plt.show()
 
     fig, ax = plt.subplots()
     ax.set_title("Kunst")
@@ -146,3 +150,4 @@ if __name__ == "__main__":
 
     ax.set_xlim([-r_lim, r_lim])
     ax.set_ylim([-r_lim, r_lim])
+    plt.show()
