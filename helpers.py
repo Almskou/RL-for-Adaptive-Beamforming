@@ -49,6 +49,17 @@ def plot_directivity(W, N, title):
     plt.show()
 
 
+def get_local_angle(AoA, Ori):
+    # Calculate local AoA
+    AoA_Local = (np.pi/2 - Ori)[:, np.newaxis] + AoA
+
+    # Wrap where needed
+    AoA_Local[AoA_Local < -np.pi] += 2*np.pi
+    AoA_Local[AoA_Local > np.pi] -= 2*np.pi
+
+    return AoA_Local
+
+
 def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     [fc, N, M, r_lim, stepsize, scenarios] = para
 
@@ -82,7 +93,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             pos_log.append(track.run(N))
 
         # Save the data
-        scio.savemat(pos_log_name, {"pos_log": pos_log})
+        scio.savemat(pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
 
         if ENGINE == "octave":
             try:
@@ -100,7 +111,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
 
             # Run the scenario to get the simulated channel parameters
-            if octave.get_data(fc, pos_log_name, data_name, ENGINE, scenarios):
+            if octave.get_data(fc, pos_log_name, data_name, ENGINE):
                 try:
                     tmp = scio.loadmat(data_name)
                     tmp = tmp["output"]
