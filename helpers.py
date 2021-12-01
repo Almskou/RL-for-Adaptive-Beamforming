@@ -50,7 +50,7 @@ def plot_directivity(W, N, title):
 
 
 def get_data(RUN, ENGINE, pos_log_name, data_name, para):
-    [fc, N, M, r_lim, stepsize] = para
+    [fc, N, M, r_lim, stepsize, scenarios] = para
 
     # Load the data
     if not RUN:
@@ -100,7 +100,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
 
             # Run the scenario to get the simulated channel parameters
-            if octave.get_data(fc, pos_log_name, data_name, ENGINE):
+            if octave.get_data(fc, pos_log_name, data_name, ENGINE, scenarios):
                 try:
                     tmp = scio.loadmat(data_name)
                     tmp = tmp["output"]
