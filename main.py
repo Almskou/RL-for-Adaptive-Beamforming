@@ -13,7 +13,7 @@ import helpers
 
 # %% Global Parameters
 RUN = True
-ENGINE = "MATLAB"  # "octave" OR "MATLAB"
+ENGINE = "octave"  # "octave" OR "MATLAB"
 
 # %% main
 if __name__ == "__main__":
