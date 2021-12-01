@@ -66,9 +66,9 @@ if __name__ == "__main__":
     r_t[0, :] = np.linspace(0, (Nt - 1) * lambda_ / 2, Nt)
 
     # Empty arrays
-    beam_t = np.zeros((np.shape(AoA)[0], np.shape(AoA[0][0])[0]))
-    beam_r = np.zeros((np.shape(AoA)[0], np.shape(AoA[0][0])[0]))
-    R = np.zeros((np.shape(AoA)[0], Nt, Nr, np.shape(AoA[0][0])[0]))
+    beam_t = np.zeros((np.shape(AoA)[0], N))
+    beam_r = np.zeros((np.shape(AoA)[0], N))
+    R = np.zeros((np.shape(AoA)[0], Nt, Nr, N))
 
     # print("Calculating R")
     F = np.zeros((Nt, Nt), dtype=np.complex128)
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nr) / Nr))
     
     for episode in range(np.shape(AoA)[0]):
-        for j in range(np.shape(AoA[0][0])[0]):
+        for j in range(np.shape(AoA[episode][0])[0]):
             # print("Calculating H")
             alpha_rx = helpers.steering_vectors2d(dir=-1, theta=AoA[episode][0][j, :], r=r_r, lambda_=lambda_)
             alpha_tx = helpers.steering_vectors2d(dir=1, theta=AoD[episode][0][j, :], r=r_t, lambda_=lambda_)
