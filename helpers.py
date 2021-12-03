@@ -66,6 +66,20 @@ def plot_directivity(W, N, title):
     plt.show()
 
 
+def angle_to_beam(AoA, W):
+    beam_tmp = np.zeros([len(W), 1])
+    beam = np.zeros([len(AoA), 1])
+
+    for i in range(len(AoA)):
+        A = (1 / np.sqrt(len(W))) * np.exp(-1j * np.pi * np.cos(AoA[i]) * np.arange(0, len(W)))
+        for j in range(len(W)):
+            # The gain is found by multiplying the code-page with the steering vector
+            beam_tmp[j] = np.abs(np.conjugate(W[j, :]).T @ A)
+
+        beam[i] = np.argmax(beam_tmp)
+    return beam
+
+
 def get_local_angle(AoA, Ori):
     """
     Transforms angles in global Quadriga coordinate system,
