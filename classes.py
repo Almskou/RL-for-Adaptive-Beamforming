@@ -116,7 +116,7 @@ class Environment():
 
         return np.max(R)
 
-    def take_action(self, State, stepnr, action):
+    def take_action(self, stepnr, action):
         reward = self._get_reward(stepnr, action)
 
         return reward
@@ -127,18 +127,32 @@ class State:
     def __init__(self, intial_state):
         self.state = intial_state
 
-    def update_state(self, action):
-        state = self.state[1:]
-        state.append(action)
-        self.state = state
+    def update_state(self, action, ori=None):
+        if ori is None:
+            state = self.state[1:]
+            state.append(action)
+        else:
+            state_a = self.state[0][1:]
+            state_a.append(action)
+            state_o = ori
+        self.state = [state_a, state_o]
 
     def get_state(self):
-        return tuple(self.state)
+        state_a = self.state[0]
+        state_o = self.state[1]
+        state = tuple([tuple(state_a), state_o])
+        return state
 
-    def get_nextstate(self, action):
-        next_state = self.state[1:]
-        next_state.append(action)
-        return tuple(next_state)
+    def get_nextstate(self, action, ori=None):
+        if ori is None:
+            next_state = self.state[1:]
+            next_state.append(action)
+        else:
+            next_state_a = self.state[0][1:]
+            next_state_a.append(action)
+            next_state_o = ori
+            next_state = tuple([tuple(next_state_a), next_state_o])
+        return next_state
 
 
 # %% Agent Class
@@ -151,7 +165,7 @@ class Agent:
         self.eps = eps
         self.gamma = gamma
         self.c = c
-        self.Q = defaultdict(self._initiate_dict(0.001))
+        self.Q = defaultdict(self._initiate_dict(0.00001))
         self.accuracy = np.zeros(1)
 
     def _initiate_dict(self, value1, value2=1):
@@ -326,7 +340,7 @@ class Agent:
                                  self.Q[state, action][1]+1]
         self._update_alpha(state, action)
 
-    def update_sarsa(self, R, State, action, next_action):
+    def update_sarsa(self, R, State, action, next_action, ori):
         """
         Update the Q table for the given state and action based on equation (6.7)
         in the book:
@@ -349,7 +363,7 @@ class Agent:
         None.
 
         """
-        next_state = State.get_nextstate(action)
+        next_state = State.get_nextstate(action, ori)
         state = State.get_state()
         next_Q = self.Q[next_state, next_action][0]
 
@@ -358,7 +372,7 @@ class Agent:
                                  self.Q[state, action][1]+1]
         self._update_alpha(state, action)
 
-    def update_Q_learning(self, R, State, action, adj=False):
+    def update_Q_learning(self, R, State, action, ori, adj=False):
         """
         Update the Q table for the given state and action based on equation (6.8)
         in the book:
@@ -379,7 +393,7 @@ class Agent:
         None.
 
         """
-        next_state = State.get_nextstate(action)
+        next_state = State.get_nextstate(action, ori)
         state = State.get_state()
         if adj:
             next_action = self.greedy_adj(next_state, action)

@@ -98,6 +98,22 @@ def get_local_angle(AoA, Ori):
     return AoA_Local
 
 
+def disrete_ori(Ori, N):
+
+    angles = [((n+1)*np.pi)/N for n in range(N-1)]
+
+    Ori_abs = np.abs(Ori)
+    Ori_discrete = np.zeros(np.shape(Ori))
+
+    for n in range(1, N-1):
+        Ori_discrete[np.logical_and(Ori_abs > angles[n-1],
+                                    Ori_abs <= angles[n])] = n
+
+    Ori_discrete[Ori_abs > angles[-1:]] = N-1
+
+    return Ori_discrete
+
+
 def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.

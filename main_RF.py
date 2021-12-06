@@ -17,6 +17,9 @@ import classes
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
+METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING
+ADJ = False
+ORI = True  # Include the orientiation in the state
 
 # %% main
 if __name__ == "__main__":
@@ -34,19 +37,19 @@ if __name__ == "__main__":
     M = 1
 
     # Number of antennae
-    Nt = 5  # Transmitter
-    Nr = 5  # Receiver
+    Nt = 4  # Transmitter
+    Nr = 4  # Receiver
 
     # Number of beams
-    Nbt = 6  # Transmitter
-    Nbr = 6  # Receiver
+    Nbt = 8  # Transmitter
+    Nbr = 8  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
     P_t = 10000  # Transmission power
 
     # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_NLOS']  # '3GPP_38.901_UMi_NLOS'
+    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     t_start = time()
     # Load or create the data
@@ -99,27 +102,46 @@ if __name__ == "__main__":
     action_space = np.arange(Nbr)
     Agent = classes.Agent(action_space, eps=0.1)
 
-    State = classes.State([0, 1, 0])
+    if ORI:
+        State = classes.State([[0, 1, 0], 0])
+        ori_discrete = helpers.disrete_ori(Orientation[0][0][2, :], Nbr)
+    else:
+        State = classes.State([0, 1, 0])
+        ori_discrete = None
 
     # RUN
     action_log = np.zeros([N, 1])
     action = 0
     for n in range(N):
-        action = Agent.e_greedy_adj(State.get_state(), action)
+        if ORI:
+            ori = int(ori_discrete[n])
+        else:
+            ori = None
 
-        R = Env.take_action(State, n, action)
+        if ADJ:
+            action = Agent.e_greedy_adj(State.get_state(), action)
+        else:
+            action = Agent.e_greedy(State.get_state())
 
-        # Agent.update(State, action, R)
-        next_action = Agent.e_greedy_adj(State.get_nextstate(action), action)
-        Agent.update_sarsa(R, State, action,
-                           next_action)
-        # Agent.update_Q_learning(R, State, action, adj=True)
+        R = Env.take_action(n, action)
 
-        State.update_state(action)
+        if METHOD == "simple":
+            Agent.update(State, action, R)
+        elif METHOD == "SARSA":
+            if ADJ:
+                next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+            else:
+                next_action = Agent.e_greedy(State.get_nextstate(action, ori))
+            Agent.update_sarsa(R, State, action,
+                               next_action, ori)
+        else:
+            Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+
+        State.update_state(action, ori)
         action_log[n] = action
 
     print("Done")
-    beam_r = 180 - np.arccos((2 * action_log - Nr) / Nr) * 180 / np.pi
+    # beam_r = 180 - np.arccos((2 * action_log - Nr) / Nr) * 180 / np.pi
 
     # %% PLOT
 
@@ -151,7 +173,7 @@ if __name__ == "__main__":
     plt.show()
 
     ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:])/NN
-    print(f"ACC: {ACC}")
+    print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
 
     """
     plt.figure()
