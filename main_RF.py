@@ -142,7 +142,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    ACC = np.sum(beam_LOS[-NN] == action_log[-NN])/NN
+    ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:])/NN
     print(f"ACC: {ACC}")
 
     """
