@@ -15,7 +15,7 @@ import helpers
 import classes
 
 # %% Global Parameters
-RUN = True
+RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 
 # %% main
@@ -36,6 +36,10 @@ if __name__ == "__main__":
     # Number of antennae
     Nt = 10  # Transmitter
     Nr = 10  # Receiver
+
+    # Number of beams
+    Nbt = 4  # Transmitter
+    Nbr = 4  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
@@ -73,18 +77,17 @@ if __name__ == "__main__":
     # Preallocate empty arrays
     beam_t = np.zeros((M, N))
     beam_r = np.zeros((M, N))
-    R = np.zeros((M, Nt, Nr, N))
     AoA_Local = []
-    F = np.zeros((Nt, Nt), dtype=np.complex128)
-    W = np.zeros((Nr, Nr), dtype=np.complex128)
+    F = np.zeros((Nbt, Nt), dtype=np.complex128)
+    W = np.zeros((Nbr, Nr), dtype=np.complex128)
 
     # Calculate DFT-codebook - Transmitter
-    for p in range(Nt):
-        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nt) / Nt)))
+    for p in range(Nbt):
+        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nbt) / (Nbt))))
 
     # Calculate DFT-codebook - Receiver
-    for q in range(Nr):
-        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nr) / Nr))
+    for q in range(Nbr):
+        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
 
     for episode in range(M):
         AoA_Local.append(helpers.get_local_angle(AoA_Global[episode][0], Orientation[episode][0][2, :]))
@@ -94,7 +97,7 @@ if __name__ == "__main__":
                               r_r, r_t, fc, P_t)
 
     action_space = np.arange(Nr)
-    Agent = classes.Agent(action_space)
+    Agent = classes.Agent(action_space, eps=0.1)
 
     State = classes.State([3, 6, 3])
 
@@ -104,9 +107,9 @@ if __name__ == "__main__":
     for n in range(N):
         action = Agent.e_greedy(State.get_state())
         R = Env.take_action(State, n, action)
-        Agent.update(State, action, R)
+        # Agent.update(State, action, R)
         # Agent.update_sarsa(R, State, action, Agent.e_greedy(State))
-        # Agent.update_Q_learning(R, State, action)
+        Agent.update_Q_learning(R, State, action)
         State.update_state(action)
         action_log[n] = action
 
@@ -128,7 +131,7 @@ if __name__ == "__main__":
 
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
-    NN = 2000
+    NN = 100
 
     if NN > 50:
         MM = 50

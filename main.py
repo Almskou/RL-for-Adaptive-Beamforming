@@ -14,14 +14,14 @@ import numpy as np
 import helpers
 
 # %% Global Parameters
-RUN = True
-ENGINE = "octave"  # "octave" OR "MATLAB"
+RUN = False
+ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 
 # %% main
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 50
+    N = 10000
 
     # Radius for communication range [m]
     r_lim = 200
@@ -33,8 +33,12 @@ if __name__ == "__main__":
     M = 2
 
     # Number of antennae
-    Nt = 10  # Transmitter
-    Nr = 10  # Receiver
+    Nt = 4  # Transmitter
+    Nr = 4  # Receiver
+
+    # Number of beams
+    Nbt = 4  # Transmitter
+    Nbr = 4  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
@@ -74,16 +78,16 @@ if __name__ == "__main__":
     beam_r = np.zeros((M, N))
     R = np.zeros((M, Nt, Nr, N))
     AoA_Local = []
-    F = np.zeros((Nt, Nt), dtype=np.complex128)
-    W = np.zeros((Nr, Nr), dtype=np.complex128)
+    F = np.zeros((Nbt, Nt), dtype=np.complex128)
+    W = np.zeros((Nbr, Nr), dtype=np.complex128)
 
     # Calculate DFT-codebook - Transmitter
-    for p in range(Nt):
-        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nt) / Nt)))
+    for p in range(Nbt):
+        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nbt) / (Nbt))))
 
     # Calculate DFT-codebook - Receiver
-    for q in range(Nr):
-        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nr) / Nr))
+    for q in range(Nbr):
+        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
 
     for episode in range(M):
         AoA_Local.append(helpers.get_local_angle(AoA_Global[episode][0], Orientation[episode][0][2, :]))

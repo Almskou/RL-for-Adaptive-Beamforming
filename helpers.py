@@ -44,7 +44,7 @@ def plot_directivity(W, N, title):
     # Sweep over range of angles, to calculate the normalized gain at each angle
     for i in range(N):
         # Hardcode the array steering vector for a ULA with len(W) elements
-        A = (1 / np.sqrt(len(W))) * np.exp(-1j * np.pi * np.cos(Theta[i]) * np.arange(0, len(W)))
+        A = (1 / np.sqrt(len(W[0, :]))) * np.exp(-1j * np.pi * np.cos(Theta[i]) * np.arange(0, len(W[0, :])))
         for j in range(len(W)):
             # The gain is found by multiplying the code-page with the steering vector
             beam[j, i] = np.abs(np.conjugate(W[j, :]).T @ A)
