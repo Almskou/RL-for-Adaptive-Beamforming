@@ -241,6 +241,32 @@ class Agent:
         else:
             return np.random.choice(self.action_space)
 
+    def greedy_adj(self, state, action):
+        N = len(self.action_space)
+        actions = [self.action_space[(action-1) % N],
+                   self.action_space[action % N],
+                   self.action_space[(action+1) % N]]
+
+        beam_dir = actions[1]
+        r_est = self.Q[state, beam_dir][0]
+
+        for action in actions:
+            if self.Q[state, action][0] > r_est:
+                beam_dir = action
+                r_est = self.Q[state, action][0]
+
+        return beam_dir
+
+    def e_greedy_adj(self, state, action):
+        if np.random.random() > self.eps:
+            return self.greedy_adj(state, action)
+        else:
+            N = len(self.action_space)
+            actions = [self.action_space[(action-1) % N],
+                       self.action_space[action % N],
+                       self.action_space[(action+1) % N]]
+            return np.random.choice(actions)
+
     def UCB(self, state, t):
         """
         Uses the Upper Bound Confidence method as a policy. See eq. (2.10)
@@ -332,7 +358,7 @@ class Agent:
                                  self.Q[state, action][1]+1]
         self._update_alpha(state, action)
 
-    def update_Q_learning(self, R, State, action):
+    def update_Q_learning(self, R, State, action, adj=False):
         """
         Update the Q table for the given state and action based on equation (6.8)
         in the book:
@@ -355,7 +381,10 @@ class Agent:
         """
         next_state = State.get_nextstate(action)
         state = State.get_state()
-        next_action = self.greedy(next_state)
+        if adj:
+            next_action = self.greedy_adj(next_state, action)
+        else:
+            next_action = self.greedy(next_state)
         next_Q = self.Q[next_state, next_action][0]
 
         self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *

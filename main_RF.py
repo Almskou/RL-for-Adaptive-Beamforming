@@ -34,19 +34,19 @@ if __name__ == "__main__":
     M = 1
 
     # Number of antennae
-    Nt = 2  # Transmitter
-    Nr = 2  # Receiver
+    Nt = 5  # Transmitter
+    Nr = 5  # Receiver
 
     # Number of beams
-    Nbt = 2  # Transmitter
-    Nbr = 2  # Receiver
+    Nbt = 6  # Transmitter
+    Nbr = 6  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
     P_t = 10000  # Transmission power
 
     # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
+    scenarios = ['3GPP_38.901_UMi_NLOS']  # '3GPP_38.901_UMi_NLOS'
 
     t_start = time()
     # Load or create the data
@@ -103,13 +103,18 @@ if __name__ == "__main__":
 
     # RUN
     action_log = np.zeros([N, 1])
-
+    action = 0
     for n in range(N):
-        action = Agent.e_greedy(State.get_state())
+        action = Agent.e_greedy_adj(State.get_state(), action)
+
         R = Env.take_action(State, n, action)
+
         # Agent.update(State, action, R)
-        Agent.update_sarsa(R, State, action, Agent.e_greedy(State.get_nextstate(action)))
-        # Agent.update_Q_learning(R, State, action)
+        next_action = Agent.e_greedy_adj(State.get_nextstate(action), action)
+        Agent.update_sarsa(R, State, action,
+                           next_action)
+        # Agent.update_Q_learning(R, State, action, adj=True)
+
         State.update_state(action)
         action_log[n] = action
 
@@ -131,7 +136,7 @@ if __name__ == "__main__":
 
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
-    NN = 100
+    NN = 1000
 
     if NN > 50:
         MM = 50

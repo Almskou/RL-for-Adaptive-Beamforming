@@ -37,8 +37,8 @@ if __name__ == "__main__":
     Nr = 4  # Receiver
 
     # Number of beams
-    Nbt = 4  # Transmitter
-    Nbr = 4  # Receiver
+    Nbt = 5  # Transmitter
+    Nbr = 5  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
