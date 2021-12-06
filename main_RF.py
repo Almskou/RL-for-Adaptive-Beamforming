@@ -34,12 +34,12 @@ if __name__ == "__main__":
     M = 1
 
     # Number of antennae
-    Nt = 10  # Transmitter
-    Nr = 10  # Receiver
+    Nt = 2  # Transmitter
+    Nr = 2  # Receiver
 
     # Number of beams
-    Nbt = 4  # Transmitter
-    Nbr = 4  # Receiver
+    Nbt = 2  # Transmitter
+    Nbr = 2  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
@@ -96,10 +96,10 @@ if __name__ == "__main__":
                               W, F, Nt, Nr,
                               r_r, r_t, fc, P_t)
 
-    action_space = np.arange(Nr)
+    action_space = np.arange(Nbr)
     Agent = classes.Agent(action_space, eps=0.1)
 
-    State = classes.State([3, 6, 3])
+    State = classes.State([0, 1, 0])
 
     # RUN
     action_log = np.zeros([N, 1])
@@ -108,8 +108,8 @@ if __name__ == "__main__":
         action = Agent.e_greedy(State.get_state())
         R = Env.take_action(State, n, action)
         # Agent.update(State, action, R)
-        # Agent.update_sarsa(R, State, action, Agent.e_greedy(State))
-        Agent.update_Q_learning(R, State, action)
+        Agent.update_sarsa(R, State, action, Agent.e_greedy(State.get_nextstate(action)))
+        # Agent.update_Q_learning(R, State, action)
         State.update_state(action)
         action_log[n] = action
 
