@@ -136,22 +136,27 @@ class State:
         if ori is None:
             state = self.state[1:]
             state.append(action)
+            self.state = state
         else:
             state_a = self.state[0][1:]
             state_a.append(action)
             state_o = ori
-        self.state = [state_a, state_o]
+            self.state = [state_a, state_o]
 
-    def get_state(self):
-        state_a = self.state[0]
-        state_o = self.state[1]
-        state = tuple([tuple(state_a), state_o])
+    def get_state(self, ori=None):
+        if ori is None:
+            state = tuple(self.state)
+        else:
+            state_a = self.state[0]
+            state_o = self.state[1]
+            state = tuple([tuple(state_a), state_o])
         return state
 
     def get_nextstate(self, action, ori=None):
         if ori is None:
             next_state = self.state[1:]
             next_state.append(action)
+            next_state = tuple(next_state)
         else:
             next_state_a = self.state[0][1:]
             next_state_a.append(action)
@@ -317,7 +322,7 @@ class Agent:
 
         return beam_dir
 
-    def update(self, State, action, reward):
+    def update(self, State, action, reward, ori):
         """
         Update the Q table for the given state and action based on equation (2.5)
         in the book:
@@ -338,7 +343,7 @@ class Agent:
         None.
 
         """
-        state = State.get_state()
+        state = State.get_state(ori)
 
         self.Q[state, action] = [(self.Q[state, action][0] +
                                   self.alpha[state, action][0] * (reward - self.Q[state, action][0])),
@@ -369,7 +374,7 @@ class Agent:
 
         """
         next_state = State.get_nextstate(action, ori)
-        state = State.get_state()
+        state = State.get_state(ori)
         next_Q = self.Q[next_state, next_action][0]
 
         self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
@@ -399,7 +404,7 @@ class Agent:
 
         """
         next_state = State.get_nextstate(action, ori)
-        state = State.get_state()
+        state = State.get_state(ori)
         if adj:
             next_action = self.greedy_adj(next_state, action)
         else:

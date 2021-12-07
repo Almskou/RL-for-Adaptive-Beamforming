@@ -17,8 +17,8 @@ import classes
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "simple"  # "simple", "SARSA" OR "Q-LEARNING
-ADJ = True
+METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING
+ADJ = False
 ORI = False  # Include the orientiation in the state
 FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 
@@ -103,12 +103,12 @@ if __name__ == "__main__":
     Agent = classes.Agent(action_space, eps=0.1)
 
     if ORI:
-        State = classes.State([[0, 1, 0], 0])
+        State = classes.State([[0, 1, 0, 0, 0, 0, 0, 0, 0, 0], 0])
         ori_discrete = np.zeros([M, N])
         for m in range(M):
             ori_discrete[m, :] = helpers.disrete_ori(Orientation[m][0][2, :], Nbr)
     else:
-        State = classes.State([0, 1, 0])
+        State = classes.State([0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
         ori_discrete = None
 
     # RUN
@@ -124,14 +124,14 @@ if __name__ == "__main__":
                 ori = None
 
             if ADJ:
-                action = Agent.e_greedy_adj(State.get_state(), action)
+                action = Agent.e_greedy_adj(State.get_state(ori), action)
             else:
-                action = Agent.e_greedy(State.get_state())
+                action = Agent.e_greedy(State.get_state(ori))
 
             R = Env.take_action(n, action)
 
             if METHOD == "simple":
-                Agent.update(State, action, R)
+                Agent.update(State, action, R, ori)
             elif METHOD == "SARSA":
                 if ADJ:
                     next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
