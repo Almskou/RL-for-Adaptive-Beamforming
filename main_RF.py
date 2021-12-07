@@ -17,7 +17,7 @@ import classes
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING"
+METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = False
 ORI = True  # Include the orientiation in the state
 FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
@@ -25,8 +25,8 @@ FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 # %% main
 if __name__ == "__main__":
 
-    n_actions = 20
-    n_ori = 20
+    n_actions = 3
+    n_ori = 3
 
     # Number of steps in a episode
     N = 20000
@@ -45,8 +45,8 @@ if __name__ == "__main__":
     Nr = 4  # Receiver
 
     # Number of beams
-    Nbt = 8  # Transmitter
-    Nbr = 8  # Receiver
+    Nbt = 5  # Transmitter
+    Nbr = 5  # Receiver
 
     fc = 28e9  # Center frequency
     lambda_ = 3e8 / fc  # Wave length

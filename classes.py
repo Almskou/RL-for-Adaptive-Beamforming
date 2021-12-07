@@ -236,7 +236,7 @@ class Agent:
             The chosen action.
 
         """
-        beam_dir = self.action_space[0]
+        beam_dir = np.random.choice(self.action_space)
         r_est = self.Q[state, beam_dir][0]
 
         for action in self.action_space:
