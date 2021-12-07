@@ -17,9 +17,9 @@ import classes
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING
+METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = False
-ORI = False  # Include the orientiation in the state
+ORI = True  # Include the orientiation in the state
 FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 
 # %% main
@@ -103,7 +103,8 @@ if __name__ == "__main__":
     Agent = classes.Agent(action_space, eps=0.1)
 
     if ORI:
-        State = classes.State([[0, 1, 0, 0, 0, 0, 0, 0, 0, 0], 0])
+        State = classes.State([[0, 1, 0],
+                               [0, 0, 0]])
         ori_discrete = np.zeros([M, N])
         for m in range(M):
             ori_discrete[m, :] = helpers.disrete_ori(Orientation[m][0][2, :], Nbr)
@@ -141,6 +142,7 @@ if __name__ == "__main__":
                                    next_action, ori)
             else:
                 Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+                METHOD = "Q-LEARNING"
 
             State.update_state(action, ori)
             action_log[m*N+n] = action

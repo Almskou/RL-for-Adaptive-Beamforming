@@ -140,7 +140,8 @@ class State:
         else:
             state_a = self.state[0][1:]
             state_a.append(action)
-            state_o = ori
+            state_o = self.state[1][1:]
+            state_o.append(ori)
             self.state = [state_a, state_o]
 
     def get_state(self, ori=None):
@@ -149,7 +150,7 @@ class State:
         else:
             state_a = self.state[0]
             state_o = self.state[1]
-            state = tuple([tuple(state_a), state_o])
+            state = tuple([tuple(state_a), tuple(state_o)])
         return state
 
     def get_nextstate(self, action, ori=None):
@@ -160,8 +161,9 @@ class State:
         else:
             next_state_a = self.state[0][1:]
             next_state_a.append(action)
-            next_state_o = ori
-            next_state = tuple([tuple(next_state_a), next_state_o])
+            next_state_o = self.state[1][1:]
+            next_state_o.append(ori)
+            next_state = tuple([tuple(next_state_a), tuple(next_state_o)])
         return next_state
 
 
