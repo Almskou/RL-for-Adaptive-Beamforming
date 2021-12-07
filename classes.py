@@ -81,11 +81,11 @@ class Track():
 
 # %% Environment Class
 class Environment():
-    def __init__(self, AoA, AoD, Beta, W, F, Nt, Nr,
+    def __init__(self, W, F, Nt, Nr,
                  r_r, r_t, fc, P_t):
-        self.AoA = AoA
-        self.AoD = AoD
-        self.Beta = Beta
+        self.AoA = 0
+        self.AoD = 0
+        self.Beta = 0
         self.W = W
         self.F = F
         self.Nt = Nt
@@ -120,6 +120,11 @@ class Environment():
         reward = self._get_reward(stepnr, action)
 
         return reward
+
+    def update_data(self, AoA, AoD, Beta):
+        self.AoA = AoA
+        self.AoD = AoD
+        self.Beta = Beta
 
 
 # %% State Class

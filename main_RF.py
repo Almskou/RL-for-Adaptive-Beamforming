@@ -17,9 +17,10 @@ import classes
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "Q-LEARNING"  # "simple", "SARSA" OR "Q-LEARNING
-ADJ = False
-ORI = True  # Include the orientiation in the state
+METHOD = "simple"  # "simple", "SARSA" OR "Q-LEARNING
+ADJ = True
+ORI = False  # Include the orientiation in the state
+FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 
 # %% main
 if __name__ == "__main__":
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     t_start = time()
     # Load or create the data
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    "data_pos.mat", "data.mat",
+                                    f"Data_sets/data_pos_{FILENAME}.mat", f"Data_sets/data_{FILENAME}.mat",
                                     [fc, N, M, r_lim, stepsize, scenarios])
     print(f"Took: {time() - t_start}")
 
@@ -92,11 +93,10 @@ if __name__ == "__main__":
     for q in range(Nbr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
 
-    for episode in range(M):
-        AoA_Local.append(helpers.get_local_angle(AoA_Global[episode][0], Orientation[episode][0][2, :]))
+    for m in range(M):
+        AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
 
-    Env = classes.Environment(AoA_Local[0], AoD_Global[0][0], coeff[0][0],
-                              W, F, Nt, Nr,
+    Env = classes.Environment(W, F, Nt, Nr,
                               r_r, r_t, fc, P_t)
 
     action_space = np.arange(Nbr)
@@ -104,42 +104,48 @@ if __name__ == "__main__":
 
     if ORI:
         State = classes.State([[0, 1, 0], 0])
-        ori_discrete = helpers.disrete_ori(Orientation[0][0][2, :], Nbr)
+        ori_discrete = np.zeros([M, N])
+        for m in range(M):
+            ori_discrete[m, :] = helpers.disrete_ori(Orientation[m][0][2, :], Nbr)
     else:
         State = classes.State([0, 1, 0])
         ori_discrete = None
 
     # RUN
-    action_log = np.zeros([N, 1])
+    action_log = np.zeros([N*M, 1])
     action = 0
-    for n in range(N):
-        if ORI:
-            ori = int(ori_discrete[n])
-        else:
-            ori = None
-
-        if ADJ:
-            action = Agent.e_greedy_adj(State.get_state(), action)
-        else:
-            action = Agent.e_greedy(State.get_state())
-
-        R = Env.take_action(n, action)
-
-        if METHOD == "simple":
-            Agent.update(State, action, R)
-        elif METHOD == "SARSA":
-            if ADJ:
-                next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+    for m in range(M):
+        print(f"Progress: {(m/M)*100}%")
+        Env.update_data(AoA_Local[m], AoD_Global[m][0], coeff[m][0])
+        for n in range(N):
+            if ORI:
+                ori = int(ori_discrete[m, n])
             else:
-                next_action = Agent.e_greedy(State.get_nextstate(action, ori))
-            Agent.update_sarsa(R, State, action,
-                               next_action, ori)
-        else:
-            Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+                ori = None
 
-        State.update_state(action, ori)
-        action_log[n] = action
+            if ADJ:
+                action = Agent.e_greedy_adj(State.get_state(), action)
+            else:
+                action = Agent.e_greedy(State.get_state())
 
+            R = Env.take_action(n, action)
+
+            if METHOD == "simple":
+                Agent.update(State, action, R)
+            elif METHOD == "SARSA":
+                if ADJ:
+                    next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+                else:
+                    next_action = Agent.e_greedy(State.get_nextstate(action, ori))
+                Agent.update_sarsa(R, State, action,
+                                   next_action, ori)
+            else:
+                Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+
+            State.update_state(action, ori)
+            action_log[m*N+n] = action
+
+    print("Progress: 100%")
     print("Done")
     # beam_r = 180 - np.arccos((2 * action_log - Nr) / Nr) * 180 / np.pi
 
@@ -154,11 +160,11 @@ if __name__ == "__main__":
     AoA_LOS_r_GLOBAL.shape = (N, 1)
 
     # Caculate the Line Of Sight angle for receiver in LOCAL coordinate system
-    AoA_LOS_r_LOCAL = np.abs(helpers.get_local_angle(AoA_LOS_r_GLOBAL[0][0], Orientation[0][0][2, :]) * 180 / np.pi)
+    AoA_LOS_r_LOCAL = np.abs(helpers.get_local_angle(AoA_LOS_r_GLOBAL[-1][0], Orientation[-1][0][2, :]) * 180 / np.pi)
 
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
-    NN = 1000
+    NN = 3000
 
     if NN > 50:
         MM = 50

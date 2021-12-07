@@ -16,12 +16,13 @@ import helpers
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
+FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 
 # %% main
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 10000
+    N = 20000
 
     # Radius for communication range [m]
     r_lim = 200
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     t_start = time()
     # Load or create the data
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    "data_pos.mat", "data.mat",
+                                    f"Data_sets/data_pos_{FILENAME}.mat", f"Data_sets/data_{FILENAME}.mat",
                                     [fc, N, M, r_lim, stepsize, scenarios])
     print(f"Took: {time() - t_start}")
 
@@ -89,18 +90,19 @@ if __name__ == "__main__":
     for q in range(Nbr):
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
 
-    for episode in range(M):
-        AoA_Local.append(helpers.get_local_angle(AoA_Global[episode][0], Orientation[episode][0][2, :]))
-        for j in range(np.shape(AoA_Global[episode][0])[0]):  # Episodes might have different lengths
+    for m in range(M):
+        print(f"Progress: {(m/M)*100}%")
+        AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
+        for j in range(np.shape(AoA_Global[m][0])[0]):  # Episodes might have different lengths
 
             # Calculate steering vectors for transmitter and receiver
-            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=AoA_Local[episode][j, :],
+            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=AoA_Local[m][j, :],
                                                   r=r_r, lambda_=lambda_)
-            alpha_tx = helpers.steering_vectors2d(direction=1, theta=AoD_Global[episode][0][j, :],
+            alpha_tx = helpers.steering_vectors2d(direction=1, theta=AoD_Global[m][0][j, :],
                                                   r=r_t, lambda_=lambda_)
 
             # Calculate channel matrix H
-            beta = coeff[episode][0][j, :]
+            beta = coeff[m][0][j, :]
             H = np.zeros((Nr, Nt), dtype=np.complex128)
             for i in range(len(beta)):
                 H += beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
@@ -109,16 +111,17 @@ if __name__ == "__main__":
             # Calculate received power for all beam-pairs
             for p in range(Nt):
                 for q in range(Nr):
-                    R[episode, p, q, j] = np.linalg.norm(np.sqrt(P_t) * np.conjugate(W[q, :]).T @ H @ F[p, :]) ** 2
+                    R[m, p, q, j] = np.linalg.norm(np.sqrt(P_t) * np.conjugate(W[q, :]).T @ H @ F[p, :]) ** 2
 
             # Determine the index of the beam-pair with highest gain
-            index = np.unravel_index(np.argmax(R[episode, :, :, j], axis=None), (Nt, Nr))
+            index = np.unravel_index(np.argmax(R[m, :, :, j], axis=None), (Nt, Nr))
 
             # Equation 9 & 10 in "A Deep Learning Approach to Location"
             # Page 8
-            beam_t[episode, j] = np.arccos((2 * index[0] - Nt) / Nt) * 180 / np.pi
-            beam_r[episode, j] = 180 - np.arccos((2 * index[1] - Nr) / Nr) * 180 / np.pi
+            beam_t[m, j] = np.arccos((2 * index[0] - Nt) / Nt) * 180 / np.pi
+            beam_r[m, j] = 180 - np.arccos((2 * index[1] - Nr) / Nr) * 180 / np.pi
 
+    print("Progress: 100%")
     print("Done")
 
     # %% PLOT
