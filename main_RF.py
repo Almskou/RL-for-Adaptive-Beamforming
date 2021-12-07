@@ -25,6 +25,9 @@ FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
 # %% main
 if __name__ == "__main__":
 
+    n_actions = 20
+    n_ori = 20
+
     # Number of steps in a episode
     N = 20000
 
@@ -103,13 +106,13 @@ if __name__ == "__main__":
     Agent = classes.Agent(action_space, eps=0.1)
 
     if ORI:
-        State = classes.State([[0, 1, 0],
-                               [0, 0, 0]])
+        State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                               list(np.random.randint(0, Nbr, n_ori))])
         ori_discrete = np.zeros([M, N])
         for m in range(M):
             ori_discrete[m, :] = helpers.disrete_ori(Orientation[m][0][2, :], Nbr)
     else:
-        State = classes.State([0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+        State = classes.State(list(np.random.randint(0, Nbr, n_actions)))
         ori_discrete = None
 
     # RUN
