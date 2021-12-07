@@ -25,7 +25,7 @@ ORI = True  # Include the orientiation in the state
 if __name__ == "__main__":
 
     # Number of steps in a episode
-    N = 10000
+    N = 20000
 
     # Radius for communication range [m]
     r_lim = 200
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     stepsize = [0.5, 1]
 
     # Number of episodes
-    M = 1
+    M = 5
 
     # Number of antennae
     Nt = 4  # Transmitter
