@@ -17,6 +17,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
 
     chunksize = 20000;
     for episode = 1:sp(1)
+        sce_index = randi([1, sc(1)]);
         for chunk = 1:ceil(sp(3)/chunksize)
             if chunk*chunksize>sp(3)
                 end_idx = sp(3);
@@ -24,7 +25,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
                 end_idx = chunk*chunksize;
             end
             l.rx_track.positions=squeeze(pos_log(episode, :, (chunk-1)*chunksize + 1:end_idx));   % Set start position and MT height
-            sce_index = randi([1, sc(1)]);
+
             l.rx_track.scenario = strtrim(scenarios(sce_index, :));             % Set propagation scenario
             l.rx_track.calc_orientation();
     
