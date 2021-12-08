@@ -10,6 +10,7 @@ from time import time
 import matplotlib.pyplot as plt
 
 import numpy as np
+import json
 
 import helpers
 import classes
@@ -21,36 +22,43 @@ METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = False
 ORI = True  # Include the orientiation in the state
 FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
+CASE = "walk"  # "walk" or "car"
 
 # %% main
 if __name__ == "__main__":
 
+    # Load Scenario configuration
+    with open(f'Cases/{CASE}.json', 'r') as fp:
+        para = json.load(fp)
+
+    # State parameters
     n_actions = 3
     n_ori = 3
 
     # Number of steps in a episode
     N = 20000
 
-    # Radius for communication range [m]
-    r_lim = 200
-
-    # Stepsize limits [m] [min, max]
-    stepsize = [0.5, 1]
-
     # Number of episodes
     M = 5
 
+    # Radius for communication range [m]
+    r_lim = para["rlim"]
+
+    # Stepsize limits [m] [min, max]
+    stepsize = [para["stepsize"]["min"],
+                para["stepsize"]["max"]]
+
     # Number of antennae
-    Nt = 4  # Transmitter
-    Nr = 4  # Receiver
+    Nt = para["transmitter"]["antennea"]  # Transmitter
+    Nr = para["receiver"]["antennea"]  # Receiver
 
     # Number of beams
-    Nbt = 5  # Transmitter
-    Nbr = 5  # Receiver
+    Nbt = para["transmitter"]["beams"]  # Transmitter
+    Nbr = para["receiver"]["beams"]  # Receiver
 
-    fc = 28e9  # Center frequency
+    fc = para["fc"]  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
-    P_t = 10000  # Transmission power
+    P_t = para["P_t"]  # Transmission power
 
     # Possible scenarios for Quadriga simulations
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'

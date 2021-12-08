@@ -1,0 +1,18 @@
+{
+    "case":         "Walk",
+    "stepsize":     {
+                    "min": 0.2,
+                    "max": 0.3
+                    },
+    "rlim":         200,
+    "fc":           28e9,
+    "receiver":     {
+                    "antennea": 4,
+                    "beams": 5
+                    },
+    "transmitter":  {
+                    "antennea": 4,
+                    "beams": 5
+                    },
+    "P_t":          10000
+}

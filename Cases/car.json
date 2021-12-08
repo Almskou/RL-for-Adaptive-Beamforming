@@ -1,0 +1,18 @@
+{
+    "case":         "Car",
+    "stepsize":     {
+                    "min": 20,
+                    "max": 30
+                    },
+    "rlim":         200,
+    "fc":           28e9,
+    "receiver":     {
+                    "antennea": 4,
+                    "beams": 5
+                    },
+    "transmitter":  {
+                    "antennea": 4,
+                    "beams": 5
+                    },
+    "P_t":          10000
+}
