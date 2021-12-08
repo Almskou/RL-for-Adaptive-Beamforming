@@ -79,13 +79,13 @@ class Track():
         """
         self.pos[0:2] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
 
-        pos_log = np.zeros([3, N + 1])
+        pos_log = np.zeros([3, N])
         pos_log[:, 0] = self.pos
         angle = np.random.uniform(0, 2 * np.pi)
         stop = False
         n = 0
         i = 0
-        while (n < N):
+        while (n < N-1):
             if stop:
                 i += 1
                 print(f'number of tries: {i}')
@@ -133,17 +133,18 @@ class Environment():
         H = H * np.sqrt(self.Nr * self.Nt)
 
         # Calculate the reward
-        R = np.zeros([len(self.F[:, 0]), 1])
-        for i in range(len(self.F[:, 0])):
-            R[i] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[action, :]).T
-                                  @ H @ self.F[i, :]) ** 2
+        R = np.zeros([len(self.F[:, 0]), len(self.W[:, 0])])
+        for p in range(len(self.F[:, 0])):
+            for q in range(len(self.W[:, 0])):
+                R[p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
+                                         @ H @ self.F[p, :]) ** 2
 
-        return np.max(R)
+        return np.max(R[:, action]), np.max(R)
 
     def take_action(self, stepnr, action):
-        reward = self._get_reward(stepnr, action)
+        reward, max_reward = self._get_reward(stepnr, action)
 
-        return reward
+        return reward, max_reward
 
     def update_data(self, AoA, AoD, Beta):
         self.AoA = AoA

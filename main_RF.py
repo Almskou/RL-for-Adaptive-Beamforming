@@ -21,7 +21,7 @@ ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = False
 ORI = True  # Include the orientiation in the state
-FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
+FILENAME = "38_901_UMi_LOS_20000_5_02_03"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
 # %% main
@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     # Load Scenario configuration
     with open(f'Cases/{CASE}.json', 'r') as fp:
-        para = json.load(fp)
+        case = json.load(fp)
 
     # State parameters
     n_actions = 3
@@ -42,23 +42,23 @@ if __name__ == "__main__":
     M = 5
 
     # Radius for communication range [m]
-    r_lim = para["rlim"]
+    r_lim = case["rlim"]
 
     # Stepsize limits [m] [min, max]
-    stepsize = [para["stepsize"]["min"],
-                para["stepsize"]["max"]]
+    stepsize = [case["stepsize"]["min"],
+                case["stepsize"]["max"]]
 
     # Number of antennae
-    Nt = para["transmitter"]["antennea"]  # Transmitter
-    Nr = para["receiver"]["antennea"]  # Receiver
+    Nt = case["transmitter"]["antennea"]  # Transmitter
+    Nr = case["receiver"]["antennea"]  # Receiver
 
     # Number of beams
-    Nbt = para["transmitter"]["beams"]  # Transmitter
-    Nbr = para["receiver"]["beams"]  # Receiver
+    Nbt = case["transmitter"]["beams"]  # Transmitter
+    Nbr = case["receiver"]["beams"]  # Receiver
 
-    fc = para["fc"]  # Center frequency
+    fc = case["fc"]  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
-    P_t = para["P_t"]  # Transmission power
+    P_t = case["P_t"]  # Transmission power
 
     # Possible scenarios for Quadriga simulations
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     t_start = time()
     # Load or create the data
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    f"Data_sets/data_pos_{FILENAME}.mat", f"Data_sets/data_{FILENAME}.mat",
+                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                     [fc, N, M, r_lim, stepsize, scenarios])
     print(f"Took: {time() - t_start}")
 
@@ -125,7 +125,10 @@ if __name__ == "__main__":
 
     # RUN
     action_log = np.zeros([N * M, 1])
+    R_log = np.zeros([N*M, 1])
+    R_max_log = np.zeros([N*M, 1])
     action = 0
+
     for m in range(M):
         print(f"Progress: {(m / M) * 100}%")
         Env.update_data(AoA_Local[m], AoD_Global[m][0], coeff[m][0])
@@ -140,7 +143,7 @@ if __name__ == "__main__":
             else:
                 action = Agent.e_greedy(State.get_state(ori))
 
-            R = Env.take_action(n, action)
+            R, R_max = Env.take_action(n, action)
 
             if METHOD == "simple":
                 Agent.update(State, action, R, ori)
@@ -157,6 +160,8 @@ if __name__ == "__main__":
 
             State.update_state(action, ori)
             action_log[m * N + n] = action
+            R_log[m*N + n] = R
+            R_max_log[m*N + n] = R_max
 
     print("Progress: 100%")
     print("Done")
@@ -193,6 +198,46 @@ if __name__ == "__main__":
 
     ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:]) / NN
     print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
+
+    plt.figure()
+    plt.title("Reward plot")
+    plt.scatter(np.arange(NN), R_max_log[-NN:], label="Max R",  marker='.')
+    plt.scatter(np.arange(NN), R_log[-NN:], label="Taken R",  marker='.')
+    plt.legend()
+    plt.yscale('log')
+    plt.show()
+
+    # %% mean plot overlap
+    var_mean = 1000
+    mean_r = np.zeros(len(R_log)-var_mean)
+    mean_r_max = np.zeros(len(R_max_log)-var_mean)
+    for i in range(len(mean_r)):
+        mean_r[i] = np.mean(R_log[i:i+var_mean])
+        mean_r_max[i] = np.mean(R_max_log[i:i+var_mean])
+
+    plt.figure()
+    plt.title("Mean overlap Reward plot")
+    plt.scatter(np.arange(N*M-var_mean), mean_r_max, label="Max R",  marker='.')
+    plt.scatter(np.arange(N*M-var_mean), mean_r, label="Taken R",  marker='.')
+    plt.legend()
+    plt.yscale('log')
+    plt.show()
+
+    # %% mean plot no overlap
+    var_mean = 1000
+    mean_r = np.zeros(int(len(R_log)/var_mean))
+    mean_r_max = np.zeros(int(len(R_max_log)/var_mean))
+    for i in range(len(mean_r)):
+        mean_r[i] = np.mean(R_log[i*var_mean:(i+1)*var_mean])
+        mean_r_max[i] = np.mean(R_max_log[i*var_mean:(i+1)*var_mean])
+
+    plt.figure()
+    plt.title("Mean Reward plot")
+    plt.scatter(np.arange(len(mean_r_max)), mean_r_max, label="Max R",  marker='.')
+    plt.scatter(np.arange(len(mean_r)), mean_r, label="Taken R",  marker='.')
+    plt.legend()
+    plt.yscale('log')
+    plt.show()
 
     """
     plt.figure()

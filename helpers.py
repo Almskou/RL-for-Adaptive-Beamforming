@@ -132,7 +132,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     if not RUN:
         try:
             print("Loading data")
-            pos_log = scio.loadmat(pos_log_name)
+            pos_log = scio.loadmat("Data_sets/"+pos_log_name)
             pos_log = pos_log["pos_log"]
 
         except IOError:
@@ -140,7 +140,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             print(f"Datafile {pos_log_name} not found")
 
         try:
-            tmp = scio.loadmat(data_name)
+            tmp = scio.loadmat("Data_sets/"+data_name)
             tmp = tmp["output"]
 
         except IOError:
@@ -159,7 +159,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
 
         print('track done')
         # Save the data
-        scio.savemat(pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
+        scio.savemat("Data_sets/"+pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
 
         if ENGINE == "octave":
             try:
@@ -179,7 +179,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             # Run the scenario to get the simulated channel parameters
             if octave.get_data(fc, pos_log_name, data_name, ENGINE):
                 try:
-                    tmp = scio.loadmat(data_name)
+                    tmp = scio.loadmat("Data_sets/"+data_name)
                     tmp = tmp["output"]
                 except FileNotFoundError:
                     raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
@@ -201,7 +201,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
             eng.addpath(eng.genpath(f"{os.getcwd()}/Quadriga"))
             if eng.get_data(fc, pos_log_name, data_name, ENGINE):
                 try:
-                    tmp = scio.loadmat(data_name)
+                    tmp = scio.loadmat("Data_sets/"+data_name)
                     tmp = tmp["output"]
 
                 except FileNotFoundError:

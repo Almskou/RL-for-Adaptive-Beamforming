@@ -51,7 +51,7 @@ if __name__ == "__main__":
     t_start = time()
     # Load or create the data
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    f"Data_sets/data_pos_{FILENAME}.mat", f"Data_sets/data_{FILENAME}.mat",
+                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                     [fc, N, M, r_lim, stepsize, scenarios])
     print(f"Took: {time() - t_start}")
 
@@ -159,8 +159,9 @@ if __name__ == "__main__":
     ax.set_title("Kunst")
     ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
     for m in range(M):
-        ax.plot(pos_log[m][0, :], pos_log[m][1, :])
+        ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
 
     ax.set_xlim([-r_lim, r_lim])
     ax.set_ylim([-r_lim, r_lim])
+    plt.legend()
     plt.show()
