@@ -100,7 +100,7 @@ class Track():
                 pos_log[:, n + 1], angle, stop = self.take_step(angle)
                 n += 1
 
-        return np.delete(pos_log, np.s_[n:], axis=1)
+        return pos_log
 
 
 # %% Environment Class

@@ -91,7 +91,7 @@ if __name__ == "__main__":
         W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
 
     for m in range(M):
-        print(f"Progress: {(m/M)*100}%")
+        print(f"Progress: {(m / M) * 100}%")
         AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
         for j in range(np.shape(AoA_Global[m][0])[0]):  # Episodes might have different lengths
 

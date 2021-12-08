@@ -99,17 +99,16 @@ def get_local_angle(AoA, Ori):
 
 
 def disrete_ori(Ori, N):
-
-    angles = [((n+1)*np.pi)/N for n in range(N-1)]
+    angles = [((n + 1) * np.pi) / N for n in range(N - 1)]
 
     Ori_abs = np.abs(Ori)
     Ori_discrete = np.zeros(np.shape(Ori))
 
-    for n in range(1, N-1):
-        Ori_discrete[np.logical_and(Ori_abs > angles[n-1],
+    for n in range(1, N - 1):
+        Ori_discrete[np.logical_and(Ori_abs > angles[n - 1],
                                     Ori_abs <= angles[n])] = n
 
-    Ori_discrete[Ori_abs > angles[-1:]] = N-1
+    Ori_discrete[Ori_abs > angles[-1:]] = N - 1
 
     return Ori_discrete
 

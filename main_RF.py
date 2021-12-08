@@ -116,10 +116,10 @@ if __name__ == "__main__":
         ori_discrete = None
 
     # RUN
-    action_log = np.zeros([N*M, 1])
+    action_log = np.zeros([N * M, 1])
     action = 0
     for m in range(M):
-        print(f"Progress: {(m/M)*100}%")
+        print(f"Progress: {(m / M) * 100}%")
         Env.update_data(AoA_Local[m], AoD_Global[m][0], coeff[m][0])
         for n in range(N):
             if ORI:
@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 METHOD = "Q-LEARNING"
 
             State.update_state(action, ori)
-            action_log[m*N+n] = action
+            action_log[m * N + n] = action
 
     print("Progress: 100%")
     print("Done")
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:])/NN
+    ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:]) / NN
     print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
 
     """
