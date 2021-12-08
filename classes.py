@@ -31,21 +31,33 @@ class Track():
         """
         return np.random.uniform(self.stepsize[0], self.stepsize[1])
 
-    def get_direction(self):
+    def get_direction(self, angle):
         """
-        Picks a random direction
+        Picks a random direction based on standard normal distribution around
+        current direction.
         :return:
         """
-        return np.random.uniform(0, 2 * np.pi)
+        if np.random.uniform(0, 1) < 0.4:
+            next_direction = angle + np.random.normal()
 
-    def take_step(self):
+            while next_direction > 2 * np.pi:
+                next_direction -= 2 * np.pi
+
+            while next_direction < 0:
+                next_direction += 2 * np.pi
+
+            return next_direction
+        else:
+            return angle
+
+    def take_step(self, current_angle):
         """
         Take a step.
         If the step takes you out of the defined circle,
         signal that the episode should stop.
         :return: Coordinates of current position after the step and whether to stop or not
         """
-        angle = self.get_direction()
+        angle = self.get_direction(current_angle)
         pos_new = [0, 0, 1.5]
         stop = False
 
@@ -54,10 +66,10 @@ class Track():
 
         if np.linalg.norm(pos_new) > self.radius_limit:
             stop = True
-            return self.pos, stop
+            return self.pos, angle, stop
 
         self.pos = pos_new
-        return pos_new, stop
+        return pos_new, angle, stop
 
     def run(self, N):
         """
@@ -69,12 +81,24 @@ class Track():
 
         pos_log = np.zeros([3, N + 1])
         pos_log[:, 0] = self.pos
-
+        angle = np.random.uniform(0, 2 * np.pi)
         stop = False
         n = 0
-        while (n < N) and (not stop):
-            pos_log[:, n + 1], stop = self.take_step()
-            n += 1
+        i = 0
+        while (n < N):
+            if stop:
+                i += 1
+                print(f'number of tries: {i}')
+                print(f'How far we got: {n}')
+                stop = False
+                self.pos[0:2] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+                n = 0
+                pos_log = np.zeros([3, N + 1])
+                pos_log[:, 0] = self.pos
+                angle = np.random.uniform(0, 2 * np.pi)
+            else:
+                pos_log[:, n + 1], angle, stop = self.take_step(angle)
+                n += 1
 
         return np.delete(pos_log, np.s_[n:], axis=1)
 
@@ -92,7 +116,7 @@ class Environment():
         self.Nr = Nr
         self.r_t = r_t
         self.r_r = r_r
-        self.lambda_ = 3e8/fc
+        self.lambda_ = 3e8 / fc
         self.P_t = P_t
 
     def _get_reward(self, stepnr, action):
@@ -218,8 +242,8 @@ class Agent:
 
         """
         if self.alpha_method == "1/n":
-            self.alpha[state, action] = [self.alpha_start*(1/self.alpha[state, action][1]),
-                                         1+self.alpha[state, action][1]]
+            self.alpha[state, action] = [self.alpha_start * (1 / self.alpha[state, action][1]),
+                                         1 + self.alpha[state, action][1]]
 
     def greedy(self, state):
         """
@@ -269,9 +293,9 @@ class Agent:
 
     def greedy_adj(self, state, action):
         N = len(self.action_space)
-        actions = [self.action_space[(action-1) % N],
+        actions = [self.action_space[(action - 1) % N],
                    self.action_space[action % N],
-                   self.action_space[(action+1) % N]]
+                   self.action_space[(action + 1) % N]]
 
         beam_dir = actions[1]
         r_est = self.Q[state, beam_dir][0]
@@ -288,9 +312,9 @@ class Agent:
             return self.greedy_adj(state, action)
         else:
             N = len(self.action_space)
-            actions = [self.action_space[(action-1) % N],
+            actions = [self.action_space[(action - 1) % N],
                        self.action_space[action % N],
-                       self.action_space[(action+1) % N]]
+                       self.action_space[(action + 1) % N]]
             return np.random.choice(actions)
 
     def UCB(self, state, t):
@@ -314,10 +338,10 @@ class Agent:
 
         """
         beam_dir = self.action_space[0]
-        r_est = self.Q[state, beam_dir][0] + self.c*np.sqrt(np.log(t)/self.Q[state, beam_dir][1])
+        r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / self.Q[state, beam_dir][1])
 
         for action in self.action_space:
-            r_est_new = self.Q[state, action][0] + self.c*np.sqrt(np.log(t)/self.Q[state, action][1])
+            r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / self.Q[state, action][1])
             if r_est_new > r_est:
                 beam_dir = action
                 r_est = r_est_new
@@ -349,7 +373,7 @@ class Agent:
 
         self.Q[state, action] = [(self.Q[state, action][0] +
                                   self.alpha[state, action][0] * (reward - self.Q[state, action][0])),
-                                 self.Q[state, action][1]+1]
+                                 self.Q[state, action][1] + 1]
         self._update_alpha(state, action)
 
     def update_sarsa(self, R, State, action, next_action, ori):
@@ -381,7 +405,7 @@ class Agent:
 
         self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
                                  (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                 self.Q[state, action][1]+1]
+                                 self.Q[state, action][1] + 1]
         self._update_alpha(state, action)
 
     def update_Q_learning(self, R, State, action, ori, adj=False):
@@ -415,5 +439,5 @@ class Agent:
 
         self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
                                  (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                 self.Q[state, action][1]+1]
+                                 self.Q[state, action][1] + 1]
         self._update_alpha(state, action)

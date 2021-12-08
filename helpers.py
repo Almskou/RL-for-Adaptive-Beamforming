@@ -158,6 +158,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
         for m in range(M):
             pos_log.append(track.run(N))
 
+        print('track done')
         # Save the data
         scio.savemat(pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
 
