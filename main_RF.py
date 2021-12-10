@@ -18,7 +18,7 @@ import plots
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
-ADJ = False
+ADJ = True
 ORI = True  # Include the orientiation in the state
 FILENAME = "38_901_UMi_LOS_100000_4_02_03"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
@@ -31,8 +31,8 @@ if __name__ == "__main__":
         case = json.load(fp)
 
     # State parameters
-    n_actions = 3
-    n_ori = 3
+    n_actions = 2
+    n_ori = 2
 
     # Number of steps in a episode
     N = 100000
@@ -124,6 +124,10 @@ if __name__ == "__main__":
     else:
         ori_discrete = None
 
+    dist_discrete = np.zeros([M, N])
+    for m in range(M):
+        dist_discrete[m, :] = helpers.discrete_pos(pos_log[m], 4, r_lim)
+
     # Number of chuncks
     nchunk = int(np.floor(N/chunksize))
 
@@ -135,18 +139,19 @@ if __name__ == "__main__":
     R_mean_log = np.zeros([M*nchunk, chunksize])
 
     for m in range(M):
-        print(f"Progress: {(m / M) * 100:0.2f}%")
-
         for chunk in range(nchunk):
+            print(f"Progress: {((m*nchunk + chunk) / (M*nchunk)) * 100:0.2f}%")
             # Create the Agent
             Agent = classes.Agent(action_space, eps=0.1)
 
             # Create the State
             if ORI:  # Orientation should be included in the state space
                 State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
-                                       list(np.random.randint(0, Nbr, n_ori))])
+                                       list(np.random.randint(0, Nbr, n_ori)),
+                                       list([dist_discrete[0]])])
             else:  # Only the actions should be included in the state space
-                State = classes.State(list(np.random.randint(0, Nbr, n_actions)))
+                State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                       list([dist_discrete[0]])])
 
             # Update the enviroment data
             Env.update_data(AoA_Local[m][chunk*chunksize:(chunk+1)*chunksize],
@@ -156,12 +161,24 @@ if __name__ == "__main__":
             # Initiate the action
             action = np.random.choice(action_space)
 
+            end = False
             # Run the episode
             for n in range(chunksize):
                 if ORI:
-                    ori = int(ori_discrete[m, n])
+                    ori = int(ori_discrete[m, chunk*chunksize + n])
+                    if n < chunksize-1:
+                        next_ori = int(ori_discrete[m, chunk*chunksize + n + 1])
                 else:
                     ori = None
+                    next_ori = None
+
+                dist = dist_discrete[m, chunk*chunksize + n]
+                if n < chunksize-1:
+                    next_dist = dist_discrete[m, chunk*chunksize + n + 1]
+                else:
+                    end = True
+
+                State.update_state(action, dist, ori=ori)
 
                 if ADJ:
                     action = Agent.e_greedy_adj(State.get_state(ori), action)
@@ -174,16 +191,17 @@ if __name__ == "__main__":
                     Agent.update(State, action, R, ori)
                 elif METHOD == "SARSA":
                     if ADJ:
-                        next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+                        next_action = Agent.e_greedy_adj(State.get_nextstate(action, next_dist, ori), action)
                     else:
-                        next_action = Agent.e_greedy(State.get_nextstate(action, ori))
+                        next_action = Agent.e_greedy(State.get_nextstate(action, next_dist, ori))
                     Agent.update_sarsa(R, State, action,
-                                       next_action, ori)
+                                       next_action, next_ori,
+                                       next_dist, end=end)
                 else:
-                    Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+                    Agent.update_Q_learning(R, State, action, next_ori,
+                                            next_dist, adj=ADJ, end=end)
                     METHOD = "Q-LEARNING"
 
-                State.update_state(action, ori)
                 action_log[m*nchunk+chunk, n] = action
                 R_log[m*nchunk+chunk, n] = R
                 R_max_log[m*nchunk+chunk, n] = R_max
@@ -206,14 +224,14 @@ if __name__ == "__main__":
 
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
-    NN = 5
+    NN = 3000
 
     if NN > 50:
         MM = 50
     else:
         MM = NN
 
-    ACC = np.sum(beam_LOS[-NN:] == action_log[0, -NN:]) / NN
+    ACC = np.sum(beam_LOS[-NN:, 0] == action_log[0, -NN:]) / NN
     print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
 
     print("Starts plotting")
@@ -223,8 +241,8 @@ if __name__ == "__main__":
     plots.n_lastest_scatter_ylog(action_log[0, :], beam_LOS, NN, ["Max R", "Taken R"],
                                  "Reward plot", marker=".")
 
-    plots.mean_reward(R_log, R_max_log, R_min_log, R_mean_log,
-                      ["R", "R_max", "R_min", "R_mean"], "Mean Rewards")
+    plots.mean_reward(R_mean_log, R_max_log, R_min_log, R_log,
+                      ["R_mean", "R_max", "R_min", "R"], "Mean Rewards")
 
     plots.positions(pos_log, r_lim)
     print("Done")

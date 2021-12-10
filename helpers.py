@@ -90,6 +90,12 @@ def disrete_ori(Ori, N):
     return Ori_discrete
 
 
+def discrete_pos(pos, N, r_lim):
+    pos_norm = np.linalg.norm(pos[0:2, :], axis=0)
+    base = int(r_lim/N)
+    return (base*np.round(pos_norm/base)).astype(int)
+
+
 def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.

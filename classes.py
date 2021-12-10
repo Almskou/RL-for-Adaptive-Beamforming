@@ -157,38 +157,45 @@ class State:
     def __init__(self, intial_state):
         self.state = intial_state
 
-    def update_state(self, action, ori=None):
+    def update_state(self, action, dist, ori=None):
         if ori is None:
-            state = self.state[1:]
-            state.append(action)
-            self.state = state
+            state_a = self.state[0][1:]
+            state_a.append(action)
+            state_d = [dist]
+            self.state = [state_a, state_d]
         else:
             state_a = self.state[0][1:]
             state_a.append(action)
             state_o = self.state[1][1:]
             state_o.append(ori)
-            self.state = [state_a, state_o]
+            state_d = [dist]
+            self.state = [state_a, state_d, state_o]
 
     def get_state(self, ori=None):
         if ori is None:
-            state = tuple(self.state)
+            state_a = self.state[0]
+            state_d = self.state[1]
+            state = tuple([tuple(state_a), tuple(state_d)])
         else:
             state_a = self.state[0]
-            state_o = self.state[1]
-            state = tuple([tuple(state_a), tuple(state_o)])
+            state_d = self.state[1]
+            state_o = self.state[2]
+            state = tuple([tuple(state_a), tuple(state_d), tuple(state_o)])
         return state
 
-    def get_nextstate(self, action, ori=None):
+    def get_nextstate(self, action, dist, ori=None):
         if ori is None:
-            next_state = self.state[1:]
-            next_state.append(action)
-            next_state = tuple(next_state)
+            next_state_a = self.state[1:]
+            next_state_a.append(action)
+            next_state_d = [dist]
+            next_state = tuple([tuple(next_state_a), tuple(next_state_d)])
         else:
             next_state_a = self.state[0][1:]
             next_state_a.append(action)
-            next_state_o = self.state[1][1:]
+            next_state_d = [dist]
+            next_state_o = self.state[2][1:]
             next_state_o.append(ori)
-            next_state = tuple([tuple(next_state_a), tuple(next_state_o)])
+            next_state = tuple([tuple(next_state_a), tuple(next_state_d), tuple(next_state_o)])
         return next_state
 
 
@@ -377,7 +384,8 @@ class Agent:
                                  self.Q[state, action][1] + 1]
         self._update_alpha(state, action)
 
-    def update_sarsa(self, R, State, action, next_action, ori):
+    def update_sarsa(self, R, State, action, next_action, next_ori,
+                     next_dist, end=False):
         """
         Update the Q table for the given state and action based on equation (6.7)
         in the book:
@@ -400,16 +408,26 @@ class Agent:
         None.
 
         """
-        next_state = State.get_nextstate(action, ori)
-        state = State.get_state(ori)
-        next_Q = self.Q[next_state, next_action][0]
+        if end is False:
+            next_state = State.get_nextstate(action, next_dist, next_ori)
+            state = State.get_state(next_ori)
+            next_Q = self.Q[next_state, next_action][0]
 
-        self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                 (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                 self.Q[state, action][1] + 1]
-        self._update_alpha(state, action)
+            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
+                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
+                                     self.Q[state, action][1] + 1]
+            self._update_alpha(state, action)
+        else:
+            state = State.get_state(next_ori)
+            next_Q = 0
 
-    def update_Q_learning(self, R, State, action, ori, adj=False):
+            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
+                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
+                                     self.Q[state, action][1] + 1]
+            self._update_alpha(state, action)
+
+    def update_Q_learning(self, R, State, action, next_ori,
+                          next_dist, adj=False, end=False):
         """
         Update the Q table for the given state and action based on equation (6.8)
         in the book:
@@ -430,15 +448,24 @@ class Agent:
         None.
 
         """
-        next_state = State.get_nextstate(action, ori)
-        state = State.get_state(ori)
-        if adj:
-            next_action = self.greedy_adj(next_state, action)
-        else:
-            next_action = self.greedy(next_state)
-        next_Q = self.Q[next_state, next_action][0]
+        if end is False:
+            next_state = State.get_nextstate(action, next_dist, next_ori)
+            state = State.get_state(next_ori)
+            if adj:
+                next_action = self.greedy_adj(next_state, action)
+            else:
+                next_action = self.greedy(next_state)
+            next_Q = self.Q[next_state, next_action][0]
 
-        self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                 (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                 self.Q[state, action][1] + 1]
-        self._update_alpha(state, action)
+            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
+                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
+                                     self.Q[state, action][1] + 1]
+            self._update_alpha(state, action)
+        else:
+            state = State.get_state(next_ori)
+            next_Q = 0
+
+            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
+                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
+                                     self.Q[state, action][1] + 1]
+            self._update_alpha(state, action)
