@@ -20,6 +20,7 @@ ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = True  # Include the orientiation in the state
+DIST = True  # Include the dist in the state
 FILENAME = "38_901_UMi_LOS_100000_4_02_03"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     N = 100000
 
     # Chunk size (More "episodes" per episode)
-    chunksize = 10000
+    chunksize = 33000
 
     # Number of episodes
     M = 1
@@ -76,7 +77,7 @@ if __name__ == "__main__":
         pos_log = pos_log[:, :, 0:N]
 
     # Re-affirm that "M" matches data
-    # M = len(pos_log)
+    M = len(pos_log)
 
     # Extract data from Quadriga simulation
     print("Extracting data")
@@ -124,9 +125,12 @@ if __name__ == "__main__":
     else:
         ori_discrete = None
 
-    dist_discrete = np.zeros([M, N])
-    for m in range(M):
-        dist_discrete[m, :] = helpers.discrete_pos(pos_log[m], 4, r_lim)
+    if DIST:
+        dist_discrete = np.zeros([M, N])
+        for m in range(M):
+            dist_discrete[m, :] = helpers.discrete_pos(pos_log[m], 4, r_lim)
+    else:
+        dist_discrete = None
 
     # Number of chuncks
     nchunk = int(np.floor(N/chunksize))
@@ -146,12 +150,23 @@ if __name__ == "__main__":
 
             # Create the State
             if ORI:  # Orientation should be included in the state space
-                State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
-                                       list(np.random.randint(0, Nbr, n_ori)),
-                                       list([dist_discrete[0]])])
+                if DIST:
+                    State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                           list([dist_discrete[0]]),
+                                           list(np.random.randint(0, Nbr, n_ori))])
+                else:
+                    State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                           list(["N/A"]),
+                                           list(np.random.randint(0, Nbr, n_ori))])
             else:  # Only the actions should be included in the state space
-                State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
-                                       list([dist_discrete[0]])])
+                if DIST:
+                    State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                           list([dist_discrete[0]]),
+                                           list(["N/A"])])
+                else:
+                    State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                           list(["N/A"]),
+                                           list(["N/A"])])
 
             # Update the enviroment data
             Env.update_data(AoA_Local[m][chunk*chunksize:(chunk+1)*chunksize],
@@ -172,28 +187,33 @@ if __name__ == "__main__":
                     ori = None
                     next_ori = None
 
-                dist = dist_discrete[m, chunk*chunksize + n]
-                if n < chunksize-1:
-                    next_dist = dist_discrete[m, chunk*chunksize + n + 1]
+                if DIST:
+                    dist = dist_discrete[m, chunk*chunksize + n]
+                    if n < chunksize-1:
+                        next_dist = dist_discrete[m, chunk*chunksize + n + 1]
                 else:
+                    dist = None
+                    next_dist = None
+
+                if n == chunksize-1:
                     end = True
 
-                State.update_state(action, dist, ori=ori)
+                State.update_state(action, dist=dist, ori=ori)
 
                 if ADJ:
-                    action = Agent.e_greedy_adj(State.get_state(ori), action)
+                    action = Agent.e_greedy_adj(State.get_state(dist, ori), action)
                 else:
-                    action = Agent.e_greedy(State.get_state(ori))
+                    action = Agent.e_greedy(State.get_state(dist, ori))
 
                 R, R_max, R_min, R_mean = Env.take_action(n, action)
 
                 if METHOD == "simple":
-                    Agent.update(State, action, R, ori)
+                    Agent.update(State, action, R, dist, ori)
                 elif METHOD == "SARSA":
                     if ADJ:
-                        next_action = Agent.e_greedy_adj(State.get_nextstate(action, next_dist, ori), action)
+                        next_action = Agent.e_greedy_adj(State.get_nextstate(action, dist=next_dist, ori=ori), action)
                     else:
-                        next_action = Agent.e_greedy(State.get_nextstate(action, next_dist, ori))
+                        next_action = Agent.e_greedy(State.get_nextstate(action, dist=next_dist, ori=ori))
                     Agent.update_sarsa(R, State, action,
                                        next_action, next_ori,
                                        next_dist, end=end)
@@ -225,6 +245,9 @@ if __name__ == "__main__":
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
     NN = 3000
+
+    if NN > chunksize:
+        NN = chunksize-1
 
     if NN > 50:
         MM = 50

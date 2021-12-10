@@ -157,45 +157,56 @@ class State:
     def __init__(self, intial_state):
         self.state = intial_state
 
-    def update_state(self, action, dist, ori=None):
-        if ori is None:
-            state_a = self.state[0][1:]
-            state_a.append(action)
-            state_d = [dist]
-            self.state = [state_a, state_d]
-        else:
-            state_a = self.state[0][1:]
-            state_a.append(action)
-            state_o = self.state[1][1:]
-            state_o.append(ori)
-            state_d = [dist]
-            self.state = [state_a, state_d, state_o]
+    def update_state(self, action, dist=None, ori=None):
+        state_a = self.state[0][1:]
+        state_a.append(action)
 
-    def get_state(self, ori=None):
-        if ori is None:
-            state_a = self.state[0]
-            state_d = self.state[1]
-            state = tuple([tuple(state_a), tuple(state_d)])
+        if dist is not None:
+            state_d = [dist]
         else:
-            state_a = self.state[0]
+            state_d = ["N/A -d"]
+
+        if ori is not None:
+            state_o = self.state[2][1:]
+            state_o.append(ori)
+        else:
+            state_o = ["N/A -o"]
+
+        self.state = [state_a, state_d, state_o]
+
+    def get_state(self, dist=None, ori=None):
+        state_a = self.state[0]
+
+        if dist is not None:
             state_d = self.state[1]
+        else:
+            state_d = ["N/A -d"]
+
+        if ori is not None:
             state_o = self.state[2]
-            state = tuple([tuple(state_a), tuple(state_d), tuple(state_o)])
+        else:
+            state_o = ["N/A -o"]
+
+        state = tuple([tuple(state_a), tuple(state_d), tuple(state_o)])
+
         return state
 
-    def get_nextstate(self, action, dist, ori=None):
-        if ori is None:
-            next_state_a = self.state[1:]
-            next_state_a.append(action)
+    def get_nextstate(self, action, dist=None, ori=None):
+        next_state_a = self.state[0][1:]
+        next_state_a.append(action)
+
+        if dist is not None:
             next_state_d = [dist]
-            next_state = tuple([tuple(next_state_a), tuple(next_state_d)])
         else:
-            next_state_a = self.state[0][1:]
-            next_state_a.append(action)
-            next_state_d = [dist]
+            next_state_d = ["N/A -d"]
+
+        if ori is not None:
             next_state_o = self.state[2][1:]
             next_state_o.append(ori)
-            next_state = tuple([tuple(next_state_a), tuple(next_state_d), tuple(next_state_o)])
+        else:
+            next_state_o = ["N/A -o"]
+
+        next_state = tuple([tuple(next_state_a), tuple(next_state_d), tuple(next_state_o)])
         return next_state
 
 
@@ -356,7 +367,7 @@ class Agent:
 
         return beam_dir
 
-    def update(self, State, action, reward, ori):
+    def update(self, State, action, reward, dist, ori):
         """
         Update the Q table for the given state and action based on equation (2.5)
         in the book:
@@ -377,7 +388,7 @@ class Agent:
         None.
 
         """
-        state = State.get_state(ori)
+        state = State.get_state(dist, ori)
 
         self.Q[state, action] = [(self.Q[state, action][0] +
                                   self.alpha[state, action][0] * (reward - self.Q[state, action][0])),
@@ -409,8 +420,8 @@ class Agent:
 
         """
         if end is False:
-            next_state = State.get_nextstate(action, next_dist, next_ori)
-            state = State.get_state(next_ori)
+            next_state = State.get_nextstate(action, dist=next_dist, ori=next_ori)
+            state = State.get_state(next_dist, next_ori)
             next_Q = self.Q[next_state, next_action][0]
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
@@ -418,7 +429,7 @@ class Agent:
                                      self.Q[state, action][1] + 1]
             self._update_alpha(state, action)
         else:
-            state = State.get_state(next_ori)
+            state = State.get_state(next_dist, next_ori)
             next_Q = 0
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
@@ -449,8 +460,8 @@ class Agent:
 
         """
         if end is False:
-            next_state = State.get_nextstate(action, next_dist, next_ori)
-            state = State.get_state(next_ori)
+            next_state = State.get_nextstate(action, dist=next_dist, ori=next_ori)
+            state = State.get_state(next_dist, next_ori)
             if adj:
                 next_action = self.greedy_adj(next_state, action)
             else:
@@ -462,7 +473,7 @@ class Agent:
                                      self.Q[state, action][1] + 1]
             self._update_alpha(state, action)
         else:
-            state = State.get_state(next_ori)
+            state = State.get_state(next_dist, next_ori)
             next_Q = 0
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *

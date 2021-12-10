@@ -8,11 +8,11 @@
     "fc":           28e9,
     "receiver":     {
                     "antennea": 4,
-                    "beams": 5
+                    "beams": 8
                     },
     "transmitter":  {
                     "antennea": 4,
-                    "beams": 5
+                    "beams": 8
                     },
     "P_t":          10000
 }
