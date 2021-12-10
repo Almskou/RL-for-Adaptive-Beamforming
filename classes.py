@@ -139,12 +139,12 @@ class Environment():
                 R[p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
                                          @ H @ self.F[p, :]) ** 2
 
-        return np.max(R[:, action]), np.max(R)
+        return np.max(R[:, action]), np.max(R), np.min(R), np.mean(R)
 
     def take_action(self, stepnr, action):
-        reward, max_reward = self._get_reward(stepnr, action)
+        reward, max_reward, min_reward, mean_reward = self._get_reward(stepnr, action)
 
-        return reward, max_reward
+        return reward, max_reward, min_reward, mean_reward
 
     def update_data(self, AoA, AoD, Beta):
         self.AoA = AoA

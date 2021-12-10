@@ -7,13 +7,12 @@
 # %% Imports
 from time import time
 
-import matplotlib.pyplot as plt
-
 import numpy as np
 import json
 
 import helpers
 import classes
+import plots
 
 # %% Global Parameters
 RUN = False
@@ -21,7 +20,7 @@ ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = False
 ORI = True  # Include the orientiation in the state
-FILENAME = "38_901_UMi_LOS_20000_5_02_03"  # After the "data_" or "data_pos_"
+FILENAME = "38_901_UMi_LOS_100000_4_02_03"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
 # %% main
@@ -36,10 +35,13 @@ if __name__ == "__main__":
     n_ori = 3
 
     # Number of steps in a episode
-    N = 20000
+    N = 100000
+
+    # Chunk size (More "episodes" per episode)
+    chunksize = 10000
 
     # Number of episodes
-    M = 5
+    M = 1
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
@@ -70,8 +72,11 @@ if __name__ == "__main__":
                                     [fc, N, M, r_lim, stepsize, scenarios])
     print(f"Took: {time() - t_start}")
 
+    if len(pos_log[0, 0, :]) > N:
+        pos_log = pos_log[:, :, 0:N]
+
     # Re-affirm that "M" matches data
-    M = len(pos_log)
+    # M = len(pos_log)
 
     # Extract data from Quadriga simulation
     print("Extracting data")
@@ -93,83 +98,102 @@ if __name__ == "__main__":
     beam_t = np.zeros((M, N))
     beam_r = np.zeros((M, N))
     AoA_Local = []
-    F = np.zeros((Nbt, Nt), dtype=np.complex128)
-    W = np.zeros((Nbr, Nr), dtype=np.complex128)
 
     # Calculate DFT-codebook - Transmitter
-    for p in range(Nbt):
-        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nbt) / (Nbt))))
+    F = helpers.codebook(Nbt, Nt)
 
     # Calculate DFT-codebook - Receiver
-    for q in range(Nbr):
-        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
+    W = helpers.codebook(Nbr, Nr)
 
+    # Calculate the AoA in the local coordinate system
     for m in range(M):
         AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
 
+    # Create the Environment
     Env = classes.Environment(W, F, Nt, Nr,
                               r_r, r_t, fc, P_t)
 
+    # Create action space
     action_space = np.arange(Nbr)
-    Agent = classes.Agent(action_space, eps=0.1)
 
+    # Create the discrete orientation if ORI is true
     if ORI:
-        State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
-                               list(np.random.randint(0, Nbr, n_ori))])
         ori_discrete = np.zeros([M, N])
         for m in range(M):
             ori_discrete[m, :] = helpers.disrete_ori(Orientation[m][0][2, :], Nbr)
     else:
-        State = classes.State(list(np.random.randint(0, Nbr, n_actions)))
         ori_discrete = None
 
+    # Number of chuncks
+    nchunk = int(np.floor(N/chunksize))
+
     # RUN
-    action_log = np.zeros([N * M, 1])
-    R_log = np.zeros([N*M, 1])
-    R_max_log = np.zeros([N*M, 1])
-    action = 0
+    action_log = np.zeros([M*nchunk, chunksize])
+    R_log = np.zeros([M*nchunk, chunksize])
+    R_max_log = np.zeros([M*nchunk, chunksize])
+    R_min_log = np.zeros([M*nchunk, chunksize])
+    R_mean_log = np.zeros([M*nchunk, chunksize])
 
     for m in range(M):
-        print(f"Progress: {(m / M) * 100}%")
-        Env.update_data(AoA_Local[m], AoD_Global[m][0], coeff[m][0])
-        for n in range(N):
-            if ORI:
-                ori = int(ori_discrete[m, n])
-            else:
-                ori = None
+        print(f"Progress: {(m / M) * 100:0.2f}%")
 
-            if ADJ:
-                action = Agent.e_greedy_adj(State.get_state(ori), action)
-            else:
-                action = Agent.e_greedy(State.get_state(ori))
+        for chunk in range(nchunk):
+            # Create the Agent
+            Agent = classes.Agent(action_space, eps=0.1)
 
-            R, R_max = Env.take_action(n, action)
+            # Create the State
+            if ORI:  # Orientation should be included in the state space
+                State = classes.State([list(np.random.randint(0, Nbr, n_actions)),
+                                       list(np.random.randint(0, Nbr, n_ori))])
+            else:  # Only the actions should be included in the state space
+                State = classes.State(list(np.random.randint(0, Nbr, n_actions)))
 
-            if METHOD == "simple":
-                Agent.update(State, action, R, ori)
-            elif METHOD == "SARSA":
-                if ADJ:
-                    next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+            # Update the enviroment data
+            Env.update_data(AoA_Local[m][chunk*chunksize:(chunk+1)*chunksize],
+                            AoD_Global[m][0][chunk*chunksize:(chunk+1)*chunksize],
+                            coeff[m][0][chunk*chunksize:(chunk+1)*chunksize])
+
+            # Initiate the action
+            action = np.random.choice(action_space)
+
+            # Run the episode
+            for n in range(chunksize):
+                if ORI:
+                    ori = int(ori_discrete[m, n])
                 else:
-                    next_action = Agent.e_greedy(State.get_nextstate(action, ori))
-                Agent.update_sarsa(R, State, action,
-                                   next_action, ori)
-            else:
-                Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
-                METHOD = "Q-LEARNING"
+                    ori = None
 
-            State.update_state(action, ori)
-            action_log[m * N + n] = action
-            R_log[m*N + n] = R
-            R_max_log[m*N + n] = R_max
+                if ADJ:
+                    action = Agent.e_greedy_adj(State.get_state(ori), action)
+                else:
+                    action = Agent.e_greedy(State.get_state(ori))
+
+                R, R_max, R_min, R_mean = Env.take_action(n, action)
+
+                if METHOD == "simple":
+                    Agent.update(State, action, R, ori)
+                elif METHOD == "SARSA":
+                    if ADJ:
+                        next_action = Agent.e_greedy_adj(State.get_nextstate(action, ori), action)
+                    else:
+                        next_action = Agent.e_greedy(State.get_nextstate(action, ori))
+                    Agent.update_sarsa(R, State, action,
+                                       next_action, ori)
+                else:
+                    Agent.update_Q_learning(R, State, action, ori, adj=ADJ)
+                    METHOD = "Q-LEARNING"
+
+                State.update_state(action, ori)
+                action_log[m*nchunk+chunk, n] = action
+                R_log[m*nchunk+chunk, n] = R
+                R_max_log[m*nchunk+chunk, n] = R_max
+                R_min_log[m*nchunk+chunk, n] = R_min
+                R_mean_log[m*nchunk+chunk, n] = R_mean
 
     print("Progress: 100%")
-    print("Done")
-    # beam_r = 180 - np.arccos((2 * action_log - Nr) / Nr) * 180 / np.pi
 
     # %% PLOT
 
-    # Plot the beam direction for the receiver and transmitter
     # Caculate the Line Of Sight angle for transmitter in GLOBAL coordinate system
     AoA_LOS_t = np.abs(np.arctan2(pos_log[0][1], pos_log[0][0]) * 180 / np.pi)
 
@@ -182,68 +206,25 @@ if __name__ == "__main__":
 
     beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
 
-    NN = 3000
+    NN = 5
 
     if NN > 50:
         MM = 50
     else:
         MM = NN
-    plt.figure()
-    plt.title("Receiver - beam")
 
-    plt.scatter(np.arange(MM), action_log[-MM:], label="Beam")
-    plt.scatter(np.arange(MM), beam_LOS[-MM:], label="LOS")
-    plt.legend()
-    plt.show()
-
-    ACC = np.sum(beam_LOS[-NN:] == action_log[-NN:]) / NN
+    ACC = np.sum(beam_LOS[-NN:] == action_log[0, -NN:]) / NN
     print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
 
-    plt.figure()
-    plt.title("Reward plot")
-    plt.scatter(np.arange(NN), R_max_log[-NN:], label="Max R",  marker='.')
-    plt.scatter(np.arange(NN), R_log[-NN:], label="Taken R",  marker='.')
-    plt.legend()
-    plt.yscale('log')
-    plt.show()
+    print("Starts plotting")
+    plots.n_lastest_scatter(action_log[0, :], beam_LOS, MM, ["action", "beam"],
+                            "Receiver - beam")
 
-    # %% mean plot overlap
-    var_mean = 1000
-    mean_r = np.zeros(len(R_log)-var_mean)
-    mean_r_max = np.zeros(len(R_max_log)-var_mean)
-    for i in range(len(mean_r)):
-        mean_r[i] = np.mean(R_log[i:i+var_mean])
-        mean_r_max[i] = np.mean(R_max_log[i:i+var_mean])
+    plots.n_lastest_scatter_ylog(action_log[0, :], beam_LOS, NN, ["Max R", "Taken R"],
+                                 "Reward plot", marker=".")
 
-    plt.figure()
-    plt.title("Mean overlap Reward plot")
-    plt.scatter(np.arange(N*M-var_mean), mean_r_max, label="Max R",  marker='.')
-    plt.scatter(np.arange(N*M-var_mean), mean_r, label="Taken R",  marker='.')
-    plt.legend()
-    plt.yscale('log')
-    plt.show()
+    plots.mean_reward(R_log, R_max_log, R_min_log, R_mean_log,
+                      ["R", "R_max", "R_min", "R_mean"], "Mean Rewards")
 
-    # %% mean plot no overlap
-    var_mean = 1000
-    mean_r = np.zeros(int(len(R_log)/var_mean))
-    mean_r_max = np.zeros(int(len(R_max_log)/var_mean))
-    for i in range(len(mean_r)):
-        mean_r[i] = np.mean(R_log[i*var_mean:(i+1)*var_mean])
-        mean_r_max[i] = np.mean(R_max_log[i*var_mean:(i+1)*var_mean])
-
-    plt.figure()
-    plt.title("Mean Reward plot")
-    plt.scatter(np.arange(len(mean_r_max)), mean_r_max, label="Max R",  marker='.')
-    plt.scatter(np.arange(len(mean_r)), mean_r, label="Taken R",  marker='.')
-    plt.legend()
-    plt.yscale('log')
-    plt.show()
-
-    """
-    plt.figure()
-    plt.title("Receiver - angle")
-    plt.plot(beam_r[-100:], label="Beam")
-    plt.plot(AoA_LOS_r_LOCAL[-100:], label="LOS")
-    plt.legend()
-    plt.show()
-    """
+    plots.positions(pos_log, r_lim)
+    print("Done")

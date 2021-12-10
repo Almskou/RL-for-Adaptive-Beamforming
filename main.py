@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import helpers
+import plots
 
 # %% Global Parameters
 RUN = False
@@ -127,8 +128,8 @@ if __name__ == "__main__":
     # %% PLOT
 
     # Plot the directivity
-    helpers.plot_directivity(W, 1000, "Receiver")
-    helpers.plot_directivity(F, 1000, "Transmitter")
+    plots.directivity(W, 1000, "Receiver")
+    plots.directivity(F, 1000, "Transmitter")
 
     # Plot the beam direction for the receiver and transmitter
     # Caculate the Line Of Sight angle for transmitter in GLOBAL coordinate system
