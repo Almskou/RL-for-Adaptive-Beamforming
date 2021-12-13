@@ -21,7 +21,7 @@ METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = True  # Include the orientiation in the state
 DIST = True  # Include the dist in the state
-FILENAME = "38_901_UMi_LOS_100000_4_02_03"  # After the "data_" or "data_pos_"
+FILENAME = "38_901_UMi_LOS_30000_1_002_003_test"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
 # %% main
@@ -36,10 +36,10 @@ if __name__ == "__main__":
     n_ori = 2
 
     # Number of steps in a episode
-    N = 100000
+    N = 30000
 
     # Chunk size (More "episodes" per episode)
-    chunksize = 33000
+    chunksize = 30000
 
     # Number of episodes
     M = 1
@@ -50,6 +50,9 @@ if __name__ == "__main__":
     # Stepsize limits [m] [min, max]
     stepsize = [case["stepsize"]["min"],
                 case["stepsize"]["max"]]
+
+    # Probability for during a big turn
+    change_dir = case["change_dir"]
 
     # Number of antennae
     Nt = case["transmitter"]["antennea"]  # Transmitter
@@ -70,7 +73,7 @@ if __name__ == "__main__":
     # Load or create the data
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
                                     f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                    [fc, N, M, r_lim, stepsize, scenarios])
+                                    [fc, N, M, r_lim, stepsize, scenarios, change_dir])
     print(f"Took: {time() - t_start}")
 
     if len(pos_log[0, 0, :]) > N:
@@ -264,8 +267,8 @@ if __name__ == "__main__":
     plots.n_lastest_scatter_ylog(action_log[0, :], beam_LOS, NN, ["Max R", "Taken R"],
                                  "Reward plot", marker=".")
 
-    plots.mean_reward(R_mean_log, R_max_log, R_min_log, R_log,
-                      ["R_mean", "R_max", "R_min", "R"], "Mean Rewards")
+    plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
+                      ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
 
     plots.positions(pos_log, r_lim)
     print("Done")

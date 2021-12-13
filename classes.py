@@ -14,7 +14,7 @@ import helpers
 # %% Track
 class Track():
 
-    def __init__(self, limit, stepsize):
+    def __init__(self, limit, stepsize, change_dir):
         """
         Initializer for the class.
         :param limit: The max value for the radius of the circle that bounds the track
@@ -23,6 +23,7 @@ class Track():
         self.radius_limit = limit
         self.pos = [0, 0, 1.5]
         self.stepsize = stepsize
+        self.change_dir = change_dir
 
     def get_stepsize(self):
         """
@@ -37,7 +38,7 @@ class Track():
         current direction.
         :return:
         """
-        if np.random.uniform(0, 1) < 0.4:
+        if np.random.uniform(0, 1) < self.change_dir:
             next_direction = angle + np.random.normal()
 
             while next_direction > 2 * np.pi:
@@ -48,7 +49,14 @@ class Track():
 
             return next_direction
         else:
-            return angle
+            next_direction = angle + 0.02*np.random.normal()
+
+            while next_direction > 2 * np.pi:
+                next_direction -= 2 * np.pi
+
+            while next_direction < 0:
+                next_direction += 2 * np.pi
+            return next_direction
 
     def take_step(self, current_angle):
         """
@@ -93,7 +101,7 @@ class Track():
                 stop = False
                 self.pos[0:2] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
                 n = 0
-                pos_log = np.zeros([3, N + 1])
+                pos_log = np.zeros([3, N])
                 pos_log[:, 0] = self.pos
                 angle = np.random.uniform(0, 2 * np.pi)
             else:

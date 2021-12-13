@@ -14,5 +14,6 @@
                     "antennea": 4,
                     "beams": 5
                     },
-    "P_t":          10000
+    "P_t":          10000,
+    "change_dir":   0.001
 }
