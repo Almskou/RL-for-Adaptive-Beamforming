@@ -165,56 +165,76 @@ class State:
     def __init__(self, intial_state):
         self.state = intial_state
 
-    def update_state(self, action, dist=None, ori=None):
+    def update_state(self, action, para=[None, None, None]):
+        dist, ori, angle = para
         state_a = self.state[0][1:]
         state_a.append(action)
 
         if dist is not None:
             state_d = [dist]
         else:
-            state_d = ["N/A -d"]
+            state_d = ["N/A"]
 
         if ori is not None:
             state_o = self.state[2][1:]
             state_o.append(ori)
         else:
-            state_o = ["N/A -o"]
+            state_o = ["N/A"]
 
-        self.state = [state_a, state_d, state_o]
+        if angle is not None:
+            state_deg = [angle]
+        else:
+            state_deg = ["N/A"]
 
-    def get_state(self, dist=None, ori=None):
+        self.state = [state_a, state_d, state_o, state_deg]
+
+    def get_state(self, para=[None, None, None]):
+        dist, ori, angle = para
         state_a = self.state[0]
 
         if dist is not None:
             state_d = self.state[1]
         else:
-            state_d = ["N/A -d"]
+            state_d = ["N/A"]
 
         if ori is not None:
             state_o = self.state[2]
         else:
-            state_o = ["N/A -o"]
+            state_o = ["N/A"]
 
-        state = tuple([tuple(state_a), tuple(state_d), tuple(state_o)])
+        if angle is not None:
+            state_deg = [angle]
+        else:
+            state_deg = ["N/A"]
+
+        state = tuple([tuple(state_a), tuple(state_d),
+                       tuple(state_o), tuple(state_deg)])
 
         return state
 
-    def get_nextstate(self, action, dist=None, ori=None):
+    def get_nextstate(self, action, para_next=[None, None, None]):
+        dist, ori, angle = para_next
         next_state_a = self.state[0][1:]
         next_state_a.append(action)
 
         if dist is not None:
             next_state_d = [dist]
         else:
-            next_state_d = ["N/A -d"]
+            next_state_d = ["N/A"]
 
         if ori is not None:
             next_state_o = self.state[2][1:]
             next_state_o.append(ori)
         else:
-            next_state_o = ["N/A -o"]
+            next_state_o = ["N/A"]
 
-        next_state = tuple([tuple(next_state_a), tuple(next_state_d), tuple(next_state_o)])
+        if angle is not None:
+            next_state_deg = [angle]
+        else:
+            next_state_deg = ["N/A"]
+
+        next_state = tuple([tuple(next_state_a), tuple(next_state_d),
+                            tuple(next_state_o), tuple(next_state_deg)])
         return next_state
 
 
@@ -375,7 +395,7 @@ class Agent:
 
         return beam_dir
 
-    def update(self, State, action, reward, dist, ori):
+    def update(self, State, action, reward, para):
         """
         Update the Q table for the given state and action based on equation (2.5)
         in the book:
@@ -396,15 +416,14 @@ class Agent:
         None.
 
         """
-        state = State.get_state(dist, ori)
+        state = State.get_state(para)
 
         self.Q[state, action] = [(self.Q[state, action][0] +
                                   self.alpha[state, action][0] * (reward - self.Q[state, action][0])),
                                  self.Q[state, action][1] + 1]
         self._update_alpha(state, action)
 
-    def update_sarsa(self, R, State, action, next_action, next_ori,
-                     next_dist, end=False):
+    def update_sarsa(self, R, State, action, next_action, para_next, end=False):
         """
         Update the Q table for the given state and action based on equation (6.7)
         in the book:
@@ -428,8 +447,8 @@ class Agent:
 
         """
         if end is False:
-            next_state = State.get_nextstate(action, dist=next_dist, ori=next_ori)
-            state = State.get_state(next_dist, next_ori)
+            next_state = State.get_nextstate(action, para_next)
+            state = State.get_state(para_next)
             next_Q = self.Q[next_state, next_action][0]
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
@@ -437,7 +456,7 @@ class Agent:
                                      self.Q[state, action][1] + 1]
             self._update_alpha(state, action)
         else:
-            state = State.get_state(next_dist, next_ori)
+            state = State.get_state(para_next)
             next_Q = 0
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
@@ -445,8 +464,7 @@ class Agent:
                                      self.Q[state, action][1] + 1]
             self._update_alpha(state, action)
 
-    def update_Q_learning(self, R, State, action, next_ori,
-                          next_dist, adj=False, end=False):
+    def update_Q_learning(self, R, State, action, para_next, adj=False, end=False):
         """
         Update the Q table for the given state and action based on equation (6.8)
         in the book:
@@ -468,8 +486,8 @@ class Agent:
 
         """
         if end is False:
-            next_state = State.get_nextstate(action, dist=next_dist, ori=next_ori)
-            state = State.get_state(next_dist, next_ori)
+            next_state = State.get_nextstate(action, para_next)
+            state = State.get_state(para_next)
             if adj:
                 next_action = self.greedy_adj(next_state, action)
             else:
@@ -481,7 +499,7 @@ class Agent:
                                      self.Q[state, action][1] + 1]
             self._update_alpha(state, action)
         else:
-            state = State.get_state(next_dist, next_ori)
+            state = State.get_state(para_next)
             next_Q = 0
 
             self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *

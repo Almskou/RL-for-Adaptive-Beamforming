@@ -75,7 +75,7 @@ def get_local_angle(AoA, Ori):
     return AoA_Local
 
 
-def disrete_ori(Ori, N):
+def discrete_ori(Ori, N):
     angles = [((n + 1) * np.pi) / N for n in range(N - 1)]
 
     Ori_abs = np.abs(Ori)
@@ -90,7 +90,27 @@ def disrete_ori(Ori, N):
     return Ori_discrete
 
 
-def discrete_pos(pos, N, r_lim):
+def discrete_angle(pos, N):
+
+    Angle = np.arctan2(pos[1, :], pos[0, :])
+    # Angle: [0 deg, 360 deg] in radians
+    Angle[Angle < 0] += 2*np.pi
+
+    # Discrete angles
+    angles = [(((n + 1) * 2*np.pi) / N) for n in range(N - 1)]
+
+    Angle_discrete = np.zeros(np.shape(Angle))
+
+    for n in range(1, N - 1):
+        Angle_discrete[np.logical_and(Angle > angles[n - 1],
+                                      Angle <= angles[n])] = n
+
+    Angle_discrete[Angle > angles[-1:]] = N - 1
+
+    return Angle_discrete
+
+
+def discrete_dist(pos, N, r_lim):
     pos_norm = np.linalg.norm(pos[0:2, :], axis=0)
     base = int(r_lim/N)
     return (base*np.round(pos_norm/base)).astype(int)
