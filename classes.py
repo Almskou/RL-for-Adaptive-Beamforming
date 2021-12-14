@@ -248,7 +248,7 @@ class Agent:
         self.eps = eps
         self.gamma = gamma
         self.c = c
-        self.Q = defaultdict(self._initiate_dict(0.00001))
+        self.Q = defaultdict(self._initiate_dict(0.001))
         self.accuracy = np.zeros(1)
 
     def _initiate_dict(self, value1, value2=1):
@@ -344,7 +344,7 @@ class Agent:
                    self.action_space[action % N],
                    self.action_space[(action + 1) % N]]
 
-        beam_dir = actions[1]
+        beam_dir = np.random.choice(actions)
         r_est = self.Q[state, beam_dir][0]
 
         for action in actions:

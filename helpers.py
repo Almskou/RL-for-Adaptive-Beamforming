@@ -152,6 +152,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
 
     if RUN:
         print("Creating track")
+
         # Create the class
         track = classes.Track(r_lim, stepsize, change_dir)
 
