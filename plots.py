@@ -48,7 +48,7 @@ def n_lastest_scatter_ylog(y1, y2, N, labels, title,
 
 
 def mean_reward(y1, y2, y3, y4, labels, title,
-                x1=None, x2=None, x3=None, x4=None):
+                x1=None, x2=None, x3=None, x4=None, db=False):
     if x1 is None:
         x1 = np.arange(len(y1[0, :]))
     if x2 is None:
@@ -68,7 +68,8 @@ def mean_reward(y1, y2, y3, y4, labels, title,
     plt.legend()
     plt.xlabel("Number of Steps")
     plt.ylabel("Mean Reward")
-    plt.yscale('log')
+    if db is not True:
+        plt.yscale('log')
     plt.show()
 
 
@@ -134,8 +135,21 @@ def ori_lines(y1, y2, ori_discrete, labels, title, N1, N2,
     if x2 is None:
         x2 = np.arange(len(y2[0, :]))
 
+    tmp = []
+    for x in range(1, len(ori)):
+        diff = np.abs(ori[x]-ori[x-1])
+        if diff > 4:
+            diff = 8 - diff
+
+        if diff > 1:
+            tmp.append(x)
+
+    tmp = np.array(tmp)
+
+    """
     tmp = [x for x in range(1, len(ori))
-           if np.abs(ori[x]-ori[x-1]) > 1]
+           if (np.abs(ori[x]-ori[x-1]) > 1)]
+    """
 
     plt.figure()
     plt.title(title+f" - {len(y1)} Episodes")
