@@ -70,6 +70,7 @@ def mean_reward(y1, y2, y3, y4, labels, title,
     plt.ylabel("Mean Reward")
     if db is not True:
         plt.yscale('log')
+    plt.savefig(f"{title}.pdf")
     plt.show()
 
 
