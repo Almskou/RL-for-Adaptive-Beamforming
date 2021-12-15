@@ -34,8 +34,8 @@ if __name__ == "__main__":
         case = json.load(fp)
 
     # State parameters
-    n_actions = 2
-    n_ori = 2
+    n_actions = 3
+    n_ori = 3
 
     dist_res = 8
     angle_res = 8
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     N = 30000
 
     # Chunk size (More "episodes" per episode)
-    chunksize = 20000
+    chunksize = 30000
 
     # Number of episodes
     M = 1
@@ -161,7 +161,6 @@ if __name__ == "__main__":
     R_mean_log = np.zeros([Episodes, chunksize])
 
     for episode in tqdm(range(Episodes), desc="Episodes"):
-        # print(f"Progress: {(episode / Episodes) * 100:0.2f}%")
         # Create the Agent
         Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
 
@@ -187,7 +186,7 @@ if __name__ == "__main__":
         State = classes.State(State_tmp)
 
         # Choose data
-        data_idx = np.random.randint(0, N-chunksize)
+        data_idx = np.random.randint(0, N-chunksize) if (N-chunksize) else 0
         path_idx = np.random.randint(0, M)
 
         # Update the enviroment data
@@ -265,44 +264,34 @@ if __name__ == "__main__":
             R_min_log[episode, n] = R_min
             R_mean_log[episode, n] = R_mean
 
-    # print("Progress: 100%")
-
     # %% PLOT
-
-    # Caculate the Line Of Sight angle for transmitter in GLOBAL coordinate system
-    AoA_LOS_t = np.abs(np.arctan2(pos_log[0][1], pos_log[0][0]) * 180 / np.pi)
-
-    # Caculate the Line Of Sight angle for receiver in GLOBAL coordinate system
-    AoA_LOS_r_GLOBAL = np.arctan2(-pos_log[0][1], -pos_log[0][0])
-    AoA_LOS_r_GLOBAL.shape = (N, 1)
-
-    # Caculate the Line Of Sight angle for receiver in LOCAL coordinate system
-    AoA_LOS_r_LOCAL = np.abs(helpers.get_local_angle(AoA_LOS_r_GLOBAL[-1][0], Orientation[-1][0][2, :]) * 180 / np.pi)
-
-    beam_LOS = helpers.angle_to_beam(AoA_LOS_r_LOCAL, W)
-
-    NN = 3000
-
-    if NN > chunksize:
-        NN = chunksize-1
-
-    if NN > 50:
-        MM = 50
-    else:
-        MM = NN
-
-    ACC = np.sum(beam_LOS[-NN:, 0] == action_log[0, -NN:]) / NN
-    print(f"METHOD: {METHOD}, ACC: {ACC}, AJD: {ADJ}, ORI: {ORI}")
-
     print("Starts plotting")
-    plots.n_lastest_scatter(action_log[0, :], beam_LOS, MM, ["action", "beam"],
-                            "Receiver - beam")
 
-    plots.n_lastest_scatter_ylog(action_log[0, :], beam_LOS, NN, ["Max R", "Taken R"],
-                                 "Reward plot", marker=".")
+    # Get the Logs in power decibel
+    R_log_db = 10*np.log10(R_log)
+    R_max_log_db = 10*np.log10(R_max_log)
+    R_min_log_db = 10*np.log10(R_min_log)
+    R_mean_log_db = 10*np.log10(R_mean_log)
 
     plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
                       ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
 
+    plots.mean_reward(R_max_log_db, R_mean_log_db, R_min_log_db, R_log_db,
+                      ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
+                      db=True)
+
     plots.positions(pos_log, r_lim)
+
+    # X-db misallignment probability
+    x_db = 2
+    ACC_xdb = helpers.misalignment_prob(R_log_db[0, :], R_max_log_db[0, :], x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
+
+    NN = 100
+    ACC_xdb_NL = helpers.misalignment_prob(R_log_db[0, -NN:], R_max_log_db[0, -NN:], x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
+
+    ACC_xdb_NF = helpers.misalignment_prob(R_log_db[0, 0:NN], R_max_log_db[0, 0:NN], x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
+
     print("Done")

@@ -116,6 +116,18 @@ def discrete_dist(pos, N, r_lim):
     return (base*np.round(pos_norm/base)).astype(int)
 
 
+def misalignment_prob(R_db, R_max_db, x_db):
+    # Create zeros vector with shape of R
+    tmp = np.zeros(np.shape(R_db))
+
+    # All places where the R values is less
+    # than R_max - x_db is set to 1.
+    tmp[R_db < R_max_db - x_db] = 1
+
+    # Return the x_db misalignment probability
+    return np.mean(tmp)
+
+
 def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.
