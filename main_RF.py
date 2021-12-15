@@ -21,7 +21,7 @@ METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = True  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
-LOCATION = True   # Include location in polar coordinates in the state
+LOCATION = False   # Include location in polar coordinates in the state
 FILENAME = "test_line"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     M = 1
 
     # Number of episodes per chunk
-    E = 1
+    Episodes = 10
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
@@ -153,114 +153,116 @@ if __name__ == "__main__":
     nchunk = int(np.floor(N/chunksize))
 
     # RUN
-    action_log = np.zeros([M*nchunk*E, chunksize])
-    R_log = np.zeros([M*nchunk*E, chunksize])
-    R_max_log = np.zeros([M*nchunk*E, chunksize])
-    R_min_log = np.zeros([M*nchunk*E, chunksize])
-    R_mean_log = np.zeros([M*nchunk*E, chunksize])
+    action_log = np.zeros([Episodes, chunksize])
+    R_log = np.zeros([Episodes, chunksize])
+    R_max_log = np.zeros([Episodes, chunksize])
+    R_min_log = np.zeros([Episodes, chunksize])
+    R_mean_log = np.zeros([Episodes, chunksize])
 
-    for m in range(M):
-        for chunk in range(nchunk):
-            for e in range(E):
-                print(f"Progress: {(((m*nchunk+chunk)*E + e) / (M*nchunk*E)) * 100:0.2f}%")
-                # Create the Agent
-                Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
+    for episode in range(Episodes):
+        print(f"Progress: {(episode / Episodes) * 100:0.2f}%")
+        # Create the Agent
+        Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
 
-                # Create the State
-                State_tmp = []
-                State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
+        # Create the State
+        State_tmp = []
+        State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
 
-                if DIST or LOCATION:
-                    State_tmp.append(list([dist_discrete[0]]))
+        if DIST or LOCATION:
+            State_tmp.append(list([dist_discrete[0]]))
+        else:
+            State_tmp.append(["N/A"])
+
+        if ORI:
+            State_tmp.append(list(np.random.randint(0, Nbr, n_ori)))
+        else:
+            State_tmp.append(["N/A"])
+
+        if LOCATION:
+            State_tmp.append(list([angle_discrete[0]]))
+        else:
+            State_tmp.append(["N/A"])
+
+        State = classes.State(State_tmp)
+
+        # Choose data
+        data_idx = np.random.randint(0, N-chunksize)
+        path_idx = np.random.randint(0, M)
+
+        # Update the enviroment data
+        Env.update_data(AoA_Local[path_idx][data_idx:data_idx+chunksize],
+                        AoD_Global[path_idx][0][data_idx:data_idx+chunksize],
+                        coeff[path_idx][0][data_idx:data_idx+chunksize])
+
+        # Initiate the action
+        action = np.random.choice(action_space)
+
+        end = False
+        # Run the episode
+        for n in range(chunksize):
+            if ORI:
+                ori = int(ori_discrete[path_idx, data_idx + n])
+                if n < chunksize-1:
+                    next_ori = int(ori_discrete[path_idx, data_idx + n + 1])
+            else:
+                ori = None
+                next_ori = None
+
+            if DIST or LOCATION:
+                dist = dist_discrete[path_idx, data_idx + n]
+                if n < chunksize-1:
+                    next_dist = dist_discrete[path_idx, data_idx + n + 1]
+            else:
+                dist = None
+                next_dist = None
+
+            if LOCATION:
+                angle = angle_discrete[path_idx, data_idx + n]
+                if n < chunksize-1:
+                    next_angle = angle_discrete[path_idx, data_idx + n + 1]
+            else:
+                angle = None
+                next_angle = None
+
+            if n == chunksize-1:
+                end = True
+
+            para = [dist, ori, angle]
+            para_action = [next_dist, ori, angle]
+            para_next = [next_dist, next_ori, next_angle]
+
+            State.update_state(action, para=para)
+
+            if ADJ:
+                action = Agent.e_greedy_adj(State.get_state(para=para), action)
+            else:
+                action = Agent.e_greedy(State.get_state(para=para))
+
+            R, R_max, R_min, R_mean = Env.take_action(n, action)
+
+            if METHOD == "simple":
+                Agent.update(State, action, R, para=para)
+            elif METHOD == "SARSA":
+                if ADJ:
+                    next_action = Agent.e_greedy_adj(State.get_nextstate(action,
+                                                                         para_next=para_action), action)
                 else:
-                    State_tmp.append(["N/A"])
+                    next_action = Agent.e_greedy(State.get_nextstate(action,
+                                                                     para_next=para_action))
+                Agent.update_sarsa(R, State, action,
+                                   next_action,
+                                   para_next=para_next, end=end)
+            else:
+                Agent.update_Q_learning(R, State, action,
+                                        para_next=para_next,
+                                        adj=ADJ, end=end)
+                METHOD = "Q-LEARNING"
 
-                if ORI:
-                    State_tmp.append(list(np.random.randint(0, Nbr, n_ori)))
-                else:
-                    State_tmp.append(["N/A"])
-
-                if LOCATION:
-                    State_tmp.append(list([angle_discrete[0]]))
-                else:
-                    State_tmp.append(["N/A"])
-
-                State = classes.State(State_tmp)
-
-                # Update the enviroment data
-                Env.update_data(AoA_Local[m][chunk*chunksize:(chunk+1)*chunksize],
-                                AoD_Global[m][0][chunk*chunksize:(chunk+1)*chunksize],
-                                coeff[m][0][chunk*chunksize:(chunk+1)*chunksize])
-
-                # Initiate the action
-                action = np.random.choice(action_space)
-
-                end = False
-                # Run the episode
-                for n in range(chunksize):
-                    if ORI:
-                        ori = int(ori_discrete[m, chunk*chunksize + n])
-                        if n < chunksize-1:
-                            next_ori = int(ori_discrete[m, chunk*chunksize + n + 1])
-                    else:
-                        ori = None
-                        next_ori = None
-
-                    if DIST or LOCATION:
-                        dist = dist_discrete[m, chunk*chunksize + n]
-                        if n < chunksize-1:
-                            next_dist = dist_discrete[m, chunk*chunksize + n + 1]
-                    else:
-                        dist = None
-                        next_dist = None
-
-                    if LOCATION:
-                        angle = angle_discrete[m, chunk*chunksize + n]
-                        if n < chunksize-1:
-                            next_angle = angle_discrete[m, chunk*chunksize + n + 1]
-                    else:
-                        angle = None
-                        next_angle = None
-
-                    if n == chunksize-1:
-                        end = True
-
-                    para = [dist, ori, angle]
-                    para_action = [next_dist, ori, angle]
-                    para_next = [next_dist, next_ori, next_angle]
-
-                    State.update_state(action, para=para)
-
-                    if ADJ:
-                        action = Agent.e_greedy_adj(State.get_state(para=para), action)
-                    else:
-                        action = Agent.e_greedy(State.get_state(para=para))
-
-                    R, R_max, R_min, R_mean = Env.take_action(n, action)
-
-                    if METHOD == "simple":
-                        Agent.update(State, action, R, para=para)
-                    elif METHOD == "SARSA":
-                        if ADJ:
-                            next_action = Agent.e_greedy_adj(State.get_nextstate(action,
-                                                                                 para_next=para_action), action)
-                        else:
-                            next_action = Agent.e_greedy(State.get_nextstate(action,
-                                                                             para_next=para_action))
-                        Agent.update_sarsa(R, State, action,
-                                           next_action,
-                                           para_next=para_next, end=end)
-                    else:
-                        Agent.update_Q_learning(R, State, action,
-                                                para_next=para_next,
-                                                adj=ADJ, end=end)
-                        METHOD = "Q-LEARNING"
-
-                    action_log[(m*nchunk+chunk)*E + e, n] = action
-                    R_log[(m*nchunk+chunk)*E+e, n] = R
-                    R_max_log[(m*nchunk+chunk)*E+e, n] = R_max
-                    R_min_log[(m*nchunk+chunk)*E+e, n] = R_min
-                    R_mean_log[(m*nchunk+chunk)*E+e, n] = R_mean
+            action_log[episode, n] = action
+            R_log[episode, n] = R
+            R_max_log[episode, n] = R_max
+            R_min_log[episode, n] = R_min
+            R_mean_log[episode, n] = R_mean
 
     print("Progress: 100%")
 
