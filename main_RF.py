@@ -20,10 +20,10 @@ RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
-ORI = True  # Include the orientiation in the state
+ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False   # Include location in polar coordinates in the state
-FILENAME = "test_line"  # After the "data_" or "data_pos_"
+FILENAME = "test_line_01"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
 # %% main
@@ -273,8 +273,8 @@ if __name__ == "__main__":
     R_min_log_db = 10*np.log10(R_min_log)
     R_mean_log_db = 10*np.log10(R_mean_log)
 
-    plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
-                      ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
+    # plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
+    #                   ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
 
     plots.mean_reward(R_max_log_db, R_mean_log_db, R_min_log_db, R_log_db,
                       ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
@@ -283,15 +283,18 @@ if __name__ == "__main__":
     plots.positions(pos_log, r_lim)
 
     # X-db misallignment probability
-    x_db = 2
-    ACC_xdb = helpers.misalignment_prob(R_log_db[0, :], R_max_log_db[0, :], x_db)
+    x_db = 3
+    ACC_xdb = helpers.misalignment_prob(np.mean(R_log_db, axis=0),
+                                        np.mean(R_max_log_db, axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
 
-    NN = 100
-    ACC_xdb_NL = helpers.misalignment_prob(R_log_db[0, -NN:], R_max_log_db[0, -NN:], x_db)
+    NN = 1000
+    ACC_xdb_NL = helpers.misalignment_prob(np.mean(R_log_db[:, -NN:], axis=0),
+                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
 
-    ACC_xdb_NF = helpers.misalignment_prob(R_log_db[0, 0:NN], R_max_log_db[0, 0:NN], x_db)
+    ACC_xdb_NF = helpers.misalignment_prob(np.mean(R_log_db[:, 0:NN], axis=0),
+                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
 
     print("Done")
