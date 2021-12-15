@@ -9,6 +9,7 @@ from time import time
 
 import numpy as np
 import json
+from tqdm import tqdm
 
 import helpers
 import classes
@@ -43,13 +44,13 @@ if __name__ == "__main__":
     N = 30000
 
     # Chunk size (More "episodes" per episode)
-    chunksize = 30000
+    chunksize = 20000
 
     # Number of episodes
     M = 1
 
     # Number of episodes per chunk
-    Episodes = 10
+    Episodes = 20
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     tmp, pos_log = helpers.get_data(RUN, ENGINE,
                                     f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                     [fc, N, M, r_lim, stepsize, scenarios, change_dir])
-    print(f"Took: {time() - t_start}")
+    print(f"Took: {time() - t_start}", flush=True)
 
     if len(pos_log[0, 0, :]) > N:
         pos_log = pos_log[:, :, 0:N]
@@ -90,13 +91,13 @@ if __name__ == "__main__":
     M = len(pos_log)
 
     # Extract data from Quadriga simulation
-    print("Extracting data")
+    print("Extracting data", flush=True)
     AoA_Global = tmp[0][0]  # Angle of Arrival in Global coord. system
     AoD_Global = tmp[1][0]  # Angle of Departure in Global coord. system
     coeff = tmp[2][0]  # Channel Coefficients
     Orientation = tmp[3][0]  # Orientation in Global coord. system
 
-    print("Starts calculating")
+    print("Starts calculating", flush=True)
     # Make ULA antenna positions - Transmitter
     r_r = np.zeros((2, Nr))
     r_r[0, :] = np.linspace(0, (Nr - 1) * lambda_ / 2, Nr)
@@ -159,8 +160,8 @@ if __name__ == "__main__":
     R_min_log = np.zeros([Episodes, chunksize])
     R_mean_log = np.zeros([Episodes, chunksize])
 
-    for episode in range(Episodes):
-        print(f"Progress: {(episode / Episodes) * 100:0.2f}%")
+    for episode in tqdm(range(Episodes), desc="Episodes"):
+        # print(f"Progress: {(episode / Episodes) * 100:0.2f}%")
         # Create the Agent
         Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
 
@@ -264,7 +265,7 @@ if __name__ == "__main__":
             R_min_log[episode, n] = R_min
             R_mean_log[episode, n] = R_mean
 
-    print("Progress: 100%")
+    # print("Progress: 100%")
 
     # %% PLOT
 
