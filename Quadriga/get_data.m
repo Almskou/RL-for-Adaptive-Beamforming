@@ -1,5 +1,7 @@
 
 function done = get_data(fc, pos_log, name, ENGINE, scenarios)
+    rng shuffle
+    
     load("Data_sets/"+pos_log);
     
     l = qd_layout;                                          % Create new QuaDRIGa layout
