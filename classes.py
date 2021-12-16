@@ -251,18 +251,18 @@ class Agent:
         self.Q = defaultdict(self._initiate_dict(0.001))
         self.accuracy = np.zeros(1)
 
-    def _initiate_dict(self, value1, value2=1):
+    def _initiate_dict(self, value1, value2=0):
         """
         Small function used when initiating the dicts.
         For the alpha dict, value1 is alphas starting value.
-        Value2 should be set to 1 as it is used to log the number of times it has been used.
+        Value2 should be set to 0 as it is used to log the number of times it has been used.
 
         Parameters
         ----------
         value1 : FLOAT
             First value in the array.
         value2 : FLOAT, optional
-            Second value in the array. The default is 1.
+            Second value in the array. The default is 0.
 
         Returns
         -------
@@ -289,8 +289,12 @@ class Agent:
 
         """
         if self.alpha_method == "1/n":
-            self.alpha[state, action] = [self.alpha_start * (1 / self.alpha[state, action][1]),
-                                         1 + self.alpha[state, action][1]]
+            if self.alpha[state, action][1] == 0:
+                self.alpha[state, action] = [self.alpha_start * (1 / 1),
+                                             1 + self.alpha[state, action][1]]
+            else:
+                self.alpha[state, action] = [self.alpha_start * (1 / self.alpha[state, action][1]),
+                                             1 + self.alpha[state, action][1]]
 
     def greedy(self, state):
         """
@@ -384,11 +388,17 @@ class Agent:
             Beam direction.
 
         """
-        beam_dir = self.action_space[0]
-        r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / self.Q[state, beam_dir][1])
+        beam_dir = np.random.choice(self.action_space)
+        if self.Q[state, beam_dir][1] == 0:
+            r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / 1)
+        else:
+            r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / self.Q[state, beam_dir][1])
 
         for action in self.action_space:
-            r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / self.Q[state, action][1])
+            if self.Q[state, action][1] == 0:
+                r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / 1)
+            else:
+                r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / self.Q[state, action][1])
             if r_est_new > r_est:
                 beam_dir = action
                 r_est = r_est_new
