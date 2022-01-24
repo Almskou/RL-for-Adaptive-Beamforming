@@ -91,7 +91,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
     else
         save("Data_sets/" + name, 'output');
     end
-    rmdir("Data_sets/tmp", 's')
+    % rmdir("Data_sets/tmp", 's')
 
     done = 1;
     

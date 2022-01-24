@@ -39,7 +39,8 @@ class Track():
         :return:
         """
         if np.random.uniform(0, 1) < self.change_dir:
-            next_direction = angle + np.random.normal()
+            # next_direction = angle + np.random.normal()
+            next_direction = angle + np.random.choice([np.pi/2, np.pi/4, -np.pi/4, -np.pi/2])
 
             while next_direction > 2 * np.pi:
                 next_direction -= 2 * np.pi
@@ -49,7 +50,7 @@ class Track():
 
             return next_direction
         else:
-            next_direction = angle + 0.02*np.random.normal()
+            next_direction = angle + 0*np.random.normal()
 
             while next_direction > 2 * np.pi:
                 next_direction -= 2 * np.pi

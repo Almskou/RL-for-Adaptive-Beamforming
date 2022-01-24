@@ -1,8 +1,8 @@
 {
     "case":         "Walk",
     "stepsize":     {
-                    "min": 0.01,
-                    "max": 0.02
+                    "min": 0.007,
+                    "max": 0.007
                     },
     "rlim":         200,
     "fc":           28e9,
@@ -15,5 +15,5 @@
                     "beams": 8
                     },
     "P_t":          10000,
-    "change_dir":   0.01
+    "change_dir":   0.0001
 }

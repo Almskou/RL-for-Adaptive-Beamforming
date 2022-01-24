@@ -23,7 +23,7 @@ ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False   # Include location in polar coordinates in the state
-FILENAME = "test_line_01"  # After the "data_" or "data_pos_"
+FILENAME = "test_case_1"  # After the "data_" or "data_pos_"
 CASE = "walk"  # "walk" or "car"
 
 # %% main
@@ -41,13 +41,13 @@ if __name__ == "__main__":
     angle_res = 8
 
     # Number of steps in a episode
-    N = 30000
+    N = 50000
 
     # Chunk size (More "episodes" per episode)
-    chunksize = 30000
+    chunksize = 25000
 
     # Number of episodes
-    M = 1
+    M = 5
 
     # Number of episodes per chunk
     Episodes = 20
