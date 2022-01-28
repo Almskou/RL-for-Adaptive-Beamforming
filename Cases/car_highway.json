@@ -1,0 +1,29 @@
+{
+    "case":             "Car_Highway",
+    "environment":      "Highway",
+    "rlim":             200,
+    "fc":               28e9,
+    "receiver":         {
+                        "antennea": 4,
+                        "beams": 8
+                        },
+    "transmitter":      {
+                        "antennea": 4,
+                        "beams": 8
+                        },
+    "P_t":              10000,
+    "vmax":             37,
+    "vmin":             22,
+    "vpref":            [30, 33, 37],
+    "pvpref":           [0.3, 0.2, 0.3],
+    "vchange":          200,
+    "dirchange":        200,
+    "stop_dirchange":   0.33,
+    "acc_max":          2.5,
+    "dec_max":          4,
+    "curvetime":        {
+                        "max":  25,
+                        "min":  17
+                        },
+    "static_friction":  0.7
+}

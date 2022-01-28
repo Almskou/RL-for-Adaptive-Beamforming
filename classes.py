@@ -3,113 +3,250 @@
 @author: Dennis Sand, Nicolai Almskou,
          Peter Fisker & Victor Nissen
 """
-
 # %% Imports
-import numpy as np
 from collections import defaultdict
+import numpy as np
 
 import helpers
 
 
 # %% Track
 class Track():
+    def __init__(self, case, delta_t, r_lim):
+        self.delta_t = delta_t
+        self.env = case["environment"]
+        self.vpref = case["vpref"]
+        self.vmax = case["vmax"]
+        self.vmin = case["vmin"]
+        self.pvpref = case["pvpref"]
+        self.pvuni = 1 - np.sum(case["pvpref"])
+        self.pvchange = self.delta_t / case["vchange"]
+        self.pdirchange = self.delta_t / case["dirchange"]
+        self.pdirchange_stop = case["stop_dirchange"]
+        self.mu_s = case["static_friction"]
+        self.acc_max = case["acc_max"]
+        self.dec_max = case["dec_max"]
+        self.ctmax = case["curvetime"]["max"]
+        self.ctmin = case["curvetime"]["min"]
 
-    def __init__(self, limit, stepsize, change_dir):
-        """
-        Initializer for the class.
-        :param limit: The max value for the radius of the circle that bounds the track
-        :param stepsize: List containing the min and max values for step size.
-        """
-        self.radius_limit = limit
-        self.pos = [0, 0, 1.5]
-        self.stepsize = stepsize
-        self.change_dir = change_dir
+        self.v_target = 0
+        self.a = 0
 
-    def get_stepsize(self):
-        """
-        Picks a step size as a random number between the defined limits
-        :return: step size in meters
-        """
-        return np.random.uniform(self.stepsize[0], self.stepsize[1])
+        self.curve_time = 0
+        self.curve_dt = 0
+        self.delta_phi = 0
+        self.v_stop = False
+        self.vrmax = 0
+        self.curve_slow = 0
 
-    def get_direction(self, angle):
-        """
-        Picks a random direction based on standard normal distribution around
-        current direction.
-        :return:
-        """
-        if np.random.uniform(0, 1) < self.change_dir:
-            # next_direction = angle + np.random.normal()
-            next_direction = angle + np.random.choice([np.pi/2, np.pi/4, -np.pi/4, -np.pi/2])
+        self.radius_limit = r_lim
 
-            while next_direction > 2 * np.pi:
-                next_direction -= 2 * np.pi
+    def set_acceleration(self, acc):
+        if acc:
+            return np.random.rand() * self.acc_max + 0.00001
+        return - (np.random.rand() * self.dec_max + 0.00001)
 
-            while next_direction < 0:
-                next_direction += 2 * np.pi
+    def change_velocity(self):
+        p_uni = np.random.rand()
+        p_pref = self.pvpref[0]
+        l_pref = len(self.pvpref)
 
-            return next_direction
+        # Checks if a pref. velocity should be chosen
+        if p_uni < p_pref:
+            return self.vpref[0]
+
+        for i in range(1, l_pref):
+            p_pref += self.pvpref[i]
+            if (p_uni > p_pref - self.pvpref[i]) and (p_uni < p_pref):
+                return self.vpref[i]
+
+        # Return a velocity from a uniform dist. between set min and max
+        return np.random.rand() * (self.vmax - self.vmin) + self.vmin
+
+    def update_velocity(self, v):
+        if np.random.rand() < self.pvchange:
+            self.v_target = self.change_velocity()
+
+            # Get an accelation / deccelation
+            if self.v_target > v:
+                self.a = self.set_acceleration(True)
+            elif self.v_target < v:
+                self.a = self.set_acceleration(False)
+            else:
+                self.a = 0
+
+        # Update the velocity bases on target and accelation
+        v = v + self.a * self.delta_t
+
+        if (((self.a > 0) and (v > self.v_target)) or
+                ((self.a < 0) and (v < self.v_target))):
+            v = self.v_target
+            self.a = 0
+
+        return v
+
+    def update_direction(self, phi, v):
+        # "Stop-turn-and-go" implemented here
+        if v == 0:
+            # Only changes the target delta phi once
+            if not self.v_stop:
+                if np.random.rand() < self.pdirchange_stop:
+                    if np.random.rand() < 0.5:
+                        delta_phi_target = np.pi / 2
+                    else:
+                        delta_phi_target = -np.pi / 2
+                else:
+                    delta_phi_target = 0
+
+                # Calculat the number of time step the change in direction needs
+                self.curve_time = np.floor((np.random.rand() * (self.ctmax - self.ctmin) + self.ctmin) / self.delta_t)
+
+                # Resets the tracker
+                self.curve_dt = 0
+
+                # Calculate the delta direction change per time step
+                self.delta_phi = delta_phi_target / self.curve_time
+
+                self.v_stop = True
+
         else:
-            next_direction = angle + 0*np.random.normal()
+            self.v_stop = False
 
-            while next_direction > 2 * np.pi:
-                next_direction -= 2 * np.pi
+            # Change target delta_phi, while the user is moving
+            if np.random.rand() < self.pdirchange:
+                # Calculat the number of time step the change in direction needs
+                self.curve_time = np.floor((np.random.rand() * (self.ctmax - self.ctmin) + self.ctmin) / self.delta_t)
 
-            while next_direction < 0:
-                next_direction += 2 * np.pi
-            return next_direction
+                # Resets the tracker
+                self.curve_dt = 0
 
-    def take_step(self, current_angle):
-        """
-        Take a step.
-        If the step takes you out of the defined circle,
-        signal that the episode should stop.
-        :return: Coordinates of current position after the step and whether to stop or not
-        """
-        angle = self.get_direction(current_angle)
-        pos_new = [0, 0, 1.5]
-        stop = False
+                # Target direction change
+                delta_phi_target = (np.random.rand() * 2 * np.pi - np.pi)
 
-        pos_new[0] = self.pos[0] + self.get_stepsize() * np.cos(angle)
-        pos_new[1] = self.pos[1] + self.get_stepsize() * np.sin(angle)
+                # Calculate the delta direction change per time step
+                self.delta_phi = delta_phi_target / self.curve_time
 
-        if np.linalg.norm(pos_new) > self.radius_limit:
-            stop = True
-            return self.pos, angle, stop
+                # Calculate the maximum radius
+                rc = self.v_target * self.curve_time * self.delta_t / np.abs(delta_phi_target)
 
-        self.pos = pos_new
-        return pos_new, angle, stop
+                # Calculate the maximum velocity which can be taken
+                self.vrmax = np.sqrt(self.mu_s * 9.81 * rc)
+
+                if self.v_target > self.vrmax:
+                    self.v_target = self.vrmax
+
+                if v > self.vrmax:
+                    self.a = self.set_acceleration(False)
+
+                    self.curve_slow = np.ceil(((v - self.vrmax) / np.abs(self.a)) / self.delta_t)
+                else:
+                    self.curve_slow = 0
+
+            # Updates the direction based on the target delta phi
+            if self.curve_dt < self.curve_time + self.curve_slow:
+                if self.curve_dt >= self.curve_slow:
+                    phi = phi + self.delta_phi
+
+                    # Checks for overflow
+                    phi = self.angle_overflow(phi)
+
+                self.curve_dt += 1
+
+        return phi
+
+    def update_pos(self, pos, v, phi):
+        # x-axis
+        pos[0] = pos[0] + np.cos(phi) * v * self.delta_t
+
+        # y-axis
+        pos[1] = pos[1] + np.sin(phi) * v * self.delta_t
+
+        return pos
+
+    def angle_overflow(self, phi):
+        # Checks for overflow
+        if phi > np.pi:
+            phi -= 2 * np.pi
+        if phi < -np.pi:
+            phi += 2 * np.pi
+
+        return phi
+
+    def initialise_run(self):
+        # Velocity
+        self.v_target = self.change_velocity()
+        v = self.v_target
+
+        # Position
+        if self.env.lower() == "urban":
+            pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+
+        elif self.env.lower() == "highway":
+            # Choose a start position on the edge based on a random chosen angle
+            egde_angle = (np.random.rand() * 2 * np.pi - np.pi)
+            pos = self.radius_limit * np.array([np.cos(egde_angle), np.sin(egde_angle)])
+
+        else:
+            pos = np.array([0, 0])
+
+        # Direction
+        if self.env.lower() == "urban":
+            phi = np.random.rand() * 2 * np.pi - np.pi
+
+        elif self.env.lower() == "highway":
+            # Limit the start direction so it does not go out of the circle at the start
+
+            # Get the angle which points at the center
+            dir_center = egde_angle + np.pi
+
+            # Checks for overflow
+            dir_center = self.angle_overflow(dir_center)
+
+            # Draw from a uniform distribution around the center angle
+            edge_max = np.pi / 6
+            edge_min = -np.pi / 6
+            phi = dir_center + np.random.rand() * (edge_max - edge_min) + edge_min
+
+            # Checks for overflow
+            phi = self.angle_overflow(phi)
+
+        else:
+            phi = 0
+
+        return v, phi, pos
 
     def run(self, N):
-        """
-        Runs one episode with N steps and logs the positions.
-        :param N: Number of steps
-        :return:
-        """
-        self.pos[0:2] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+        # Create a empty array for the velocities
+        v = np.zeros([N])
+        phi = np.zeros([N])
+        pos = np.zeros([3, N])
+        pos[2, :] = 1.5
 
-        pos_log = np.zeros([3, N])
-        pos_log[:, 0] = self.pos
-        angle = np.random.uniform(0, 2 * np.pi)
-        stop = False
-        n = 0
+        # Get start values
+        v[0], phi[0], pos[0:2, 0] = self.initialise_run()
+
+        # Start running the "simulation"
+        t = 1
         i = 0
-        while (n < N-1):
-            if stop:
-                i += 1
+        while (t < N):
+            pos[0:2, t] = self.update_pos(pos[0:2, t - 1], v[t - 1], phi[t - 1])
+            if np.linalg.norm(pos[0:2, t]) > self.radius_limit:
+                # Restarts the run
                 print(f'number of tries: {i}')
-                print(f'How far we got: {n}')
-                stop = False
-                self.pos[0:2] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
-                n = 0
-                pos_log = np.zeros([3, N])
-                pos_log[:, 0] = self.pos
-                angle = np.random.uniform(0, 2 * np.pi)
-            else:
-                pos_log[:, n + 1], angle, stop = self.take_step(angle)
-                n += 1
+                print(f'How far we got: {t}')
 
-        return pos_log
+                t = 1
+                i += 1
+
+                # Start with new values
+                v[0], phi[0], pos[0:2, 0] = self.initialise_run()
+
+            else:
+                v[t] = self.update_velocity(v[t - 1])
+                phi[t] = self.update_direction(phi[t - 1], v[t])
+                t += 1
+
+        return pos
 
 
 # %% Environment Class

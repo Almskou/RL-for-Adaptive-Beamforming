@@ -3,70 +3,102 @@
 @author: Dennis Sand, Nicolai Almskou,
          Peter Fisker & Victor Nissen
 """
-
 # %% Imports
+import json
 from time import time
 
-import matplotlib.pyplot as plt
-
 import numpy as np
+from tqdm import tqdm
 
+import classes
 import helpers
 import plots
 
 # %% Global Parameters
 RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-FILENAME = "38.901_UMi_LOS_20000_5_0.5_1"  # After the "data_" or "data_pos_"
+METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
+ADJ = True
+ORI = False  # Include the orientiation in the state
+DIST = False  # Include the dist in the state
+LOCATION = False  # Include location in polar coordinates in the state
+FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
+CASE = "car_highway"  # "pedestrian" or "car"
 
 # %% main
 if __name__ == "__main__":
 
+    # Load Scenario configuration
+    with open(f'Cases/{CASE}.json', 'r') as fp:
+        case = json.load(fp)
+
+    # ----------- Channel Simulation Parameters -----------
+    # Possible scenarios for Quadriga simulations
+    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
+
     # Number of steps in a episode
-    N = 20000
+    N = 1300
 
-    # Radius for communication range [m]
-    r_lim = 200
-
-    # Stepsize limits [m] [min, max]
-    stepsize = [0.5, 5]
+    # Sample Period [s]
+    sample_period = 0.01
 
     # Number of episodes
     M = 2
 
+    # ----------- Reinforcement Learning Parameters -----------
+    # State parameters
+    n_actions = 3
+    n_ori = 3
+
+    dist_res = 8
+    angle_res = 8
+
+    # Chunk size, number of samples taken out.
+    chunksize = 300
+
+    # Number of episodes per chunk
+    Episodes = 2
+
+    # Radius for communication range [m]
+    r_lim = case["rlim"]
+
+    # ----------- Extracting variables from case -----------
     # Number of antennae
-    Nt = 4  # Transmitter
-    Nr = 4  # Receiver
+    Nt = case["transmitter"]["antennea"]  # Transmitter
+    Nr = case["receiver"]["antennea"]  # Receiver
 
     # Number of beams
-    Nbt = 5  # Transmitter
-    Nbr = 5  # Receiver
+    Nbt = case["transmitter"]["beams"]  # Transmitter
+    Nbr = case["receiver"]["beams"]  # Receiver
 
-    fc = 28e9  # Center frequency
+    fc = case["fc"]  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
-    P_t = 10000  # Transmission power
+    P_t = case["P_t"]  # Transmission power
 
-    # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
-
+    # ----------- Create the data -----------
     t_start = time()
     # Load or create the data
-    tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                    [fc, N, M, r_lim, stepsize, scenarios])
-    print(f"Took: {time() - t_start}")
+    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
+                                            f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
+                                            [fc, N, M, r_lim, sample_period, scenarios])
+    print(f"Took: {time() - t_start}", flush=True)
 
     # Re-affirm that "M" matches data
     M = len(pos_log)
 
-    # Extract data from Quadriga simulation
-    print("Extracting data")
-    AoA_Global = tmp[0][0]  # Angle of Arrival in Global coord. system
-    AoD_Global = tmp[1][0]  # Angle of Departure in Global coord. system
-    coeff = tmp[2][0]  # Channel Coefficients
-    Orientation = tmp[3][0]  # Orientation in Global coord. system
+    # ----------- Extract data from Quadriga simulation -----------
+    print("Extracting data", flush=True)
+    AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
+    AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
+    coeff = channel_par[2][0]  # Channel Coefficients
+    Orientation = channel_par[3][0]  # Orientation in Global coord. system
 
-    print("Starts calculating")
+    if CASE == 'pedestrian':
+        # Add some random noise to the orientation to simulate a moving person
+        Orientation = helpers.noisy_ori(Orientation)
+
+    # ----------- Prepare the simulation - Channel -----------
+    print("Starts calculating", flush=True)
     # Make ULA antenna positions - Transmitter
     r_r = np.zeros((2, Nr))
     r_r[0, :] = np.linspace(0, (Nr - 1) * lambda_ / 2, Nr)
@@ -78,91 +110,192 @@ if __name__ == "__main__":
     # Preallocate empty arrays
     beam_t = np.zeros((M, N))
     beam_r = np.zeros((M, N))
-    R = np.zeros((M, Nt, Nr, N))
     AoA_Local = []
-    F = np.zeros((Nbt, Nt), dtype=np.complex128)
-    W = np.zeros((Nbr, Nr), dtype=np.complex128)
 
     # Calculate DFT-codebook - Transmitter
-    for p in range(Nbt):
-        F[p, :] = ((1 / np.sqrt(Nt)) * np.exp(-1j * np.pi * np.arange(Nt) * ((2 * p - Nbt) / (Nbt))))
+    F = helpers.codebook(Nbt, Nt)
 
     # Calculate DFT-codebook - Receiver
-    for q in range(Nbr):
-        W[q, :] = (1 / np.sqrt(Nr)) * np.exp(-1j * np.pi * np.arange(Nr) * ((2 * q - Nbr) / (Nbr)))
+    W = helpers.codebook(Nbr, Nr)
 
+    # Calculate the AoA in the local coordinate system
     for m in range(M):
-        print(f"Progress: {(m / M) * 100}%")
         AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
-        for j in range(np.shape(AoA_Global[m][0])[0]):  # Episodes might have different lengths
 
-            # Calculate steering vectors for transmitter and receiver
-            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=AoA_Local[m][j, :],
-                                                  r=r_r, lambda_=lambda_)
-            alpha_tx = helpers.steering_vectors2d(direction=1, theta=AoD_Global[m][0][j, :],
-                                                  r=r_t, lambda_=lambda_)
+    # ----------- Prepare the simulation - RL -----------
+    # Create the Environment
+    Env = classes.Environment(W, F, Nt, Nr,
+                              r_r, r_t, fc, P_t)
 
-            # Calculate channel matrix H
-            beta = coeff[m][0][j, :]
-            H = np.zeros((Nr, Nt), dtype=np.complex128)
-            for i in range(len(beta)):
-                H += beta[i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
-            H = H * np.sqrt(Nr * Nt)
+    # Create action space
+    action_space = np.arange(Nbr)
 
-            # Calculate received power for all beam-pairs
-            for p in range(Nt):
-                for q in range(Nr):
-                    R[m, p, q, j] = np.linalg.norm(np.sqrt(P_t) * np.conjugate(W[q, :]).T @ H @ F[p, :]) ** 2
+    # Create the discrete orientation if ORI is true
+    if ORI:
+        ori_discrete = np.zeros([M, N])
+        for m in range(M):
+            ori_discrete[m, :] = helpers.discrete_ori(Orientation[m][0][2, :], Nbr)
+    else:
+        ori_discrete = None
 
-            # Determine the index of the beam-pair with highest gain
-            index = np.unravel_index(np.argmax(R[m, :, :, j], axis=None), (Nt, Nr))
+    if DIST or LOCATION:
+        dist_discrete = np.zeros([M, N])
+        for m in range(M):
+            dist_discrete[m, :] = helpers.discrete_dist(pos_log[m], dist_res, r_lim)
+    else:
+        dist_discrete = None
 
-            # Equation 9 & 10 in "A Deep Learning Approach to Location"
-            # Page 8
-            beam_t[m, j] = np.arccos((2 * index[0] - Nt) / Nt) * 180 / np.pi
-            beam_r[m, j] = 180 - np.arccos((2 * index[1] - Nr) / Nr) * 180 / np.pi
+    if LOCATION:
+        angle_discrete = np.zeros([M, N])
+        for m in range(M):
+            angle_discrete[m, :] = helpers.discrete_angle(pos_log[m], angle_res)
+    else:
+        angle_discrete = None
 
-    print("Progress: 100%")
-    print("Done")
+    # ----------- Starts the simulation -----------
+    action_log = np.zeros([Episodes, chunksize])
+    R_log = np.zeros([Episodes, chunksize])
+    R_max_log = np.zeros([Episodes, chunksize])
+    R_min_log = np.zeros([Episodes, chunksize])
+    R_mean_log = np.zeros([Episodes, chunksize])
+
+    for episode in tqdm(range(Episodes), desc="Episodes"):
+        # Create the Agent
+        Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
+
+        # Create the State
+        State_tmp = []
+
+        # Initate a random beam sequence
+        State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
+
+        if DIST or LOCATION:
+            State_tmp.append(list([dist_discrete[0]]))
+        else:
+            State_tmp.append(["N/A"])
+
+        if ORI:
+            State_tmp.append(list(np.random.randint(0, Nbr, n_ori)))
+        else:
+            State_tmp.append(["N/A"])
+
+        if LOCATION:
+            State_tmp.append(list([angle_discrete[0]]))
+        else:
+            State_tmp.append(["N/A"])
+
+        State = classes.State(State_tmp)
+
+        # Choose data
+        data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
+        path_idx = np.random.randint(0, M)
+
+        # Update the enviroment data
+        Env.update_data(AoA_Local[path_idx][data_idx:data_idx + chunksize],
+                        AoD_Global[path_idx][0][data_idx:data_idx + chunksize],
+                        coeff[path_idx][0][data_idx:data_idx + chunksize])
+
+        # Initiate the action
+        action = np.random.choice(action_space)
+
+        end = False
+        # Run the episode
+        for n in range(chunksize):
+            if ORI:
+                ori = int(ori_discrete[path_idx, data_idx + n])
+                if n < chunksize - 1:
+                    next_ori = int(ori_discrete[path_idx, data_idx + n + 1])
+            else:
+                ori = None
+                next_ori = None
+
+            if DIST or LOCATION:
+                dist = dist_discrete[path_idx, data_idx + n]
+                if n < chunksize - 1:
+                    next_dist = dist_discrete[path_idx, data_idx + n + 1]
+            else:
+                dist = None
+                next_dist = None
+
+            if LOCATION:
+                angle = angle_discrete[path_idx, data_idx + n]
+                if n < chunksize - 1:
+                    next_angle = angle_discrete[path_idx, data_idx + n + 1]
+            else:
+                angle = None
+                next_angle = None
+
+            if n == chunksize - 1:
+                end = True
+
+            para = [dist, ori, angle]
+            para_action = [next_dist, ori, angle]
+            para_next = [next_dist, next_ori, next_angle]
+
+            State.update_state(action, para=para)
+
+            if ADJ:
+                action = Agent.e_greedy_adj(State.get_state(para=para), action)
+            else:
+                action = Agent.e_greedy(State.get_state(para=para))
+
+            R, R_max, R_min, R_mean = Env.take_action(n, action)
+
+            if METHOD == "simple":
+                Agent.update(State, action, R, para=para)
+            elif METHOD == "SARSA":
+                if ADJ:
+                    next_action = Agent.e_greedy_adj(State.get_nextstate(action,
+                                                                         para_next=para_action), action)
+                else:
+                    next_action = Agent.e_greedy(State.get_nextstate(action,
+                                                                     para_next=para_action))
+                Agent.update_sarsa(R, State, action,
+                                   next_action,
+                                   para_next=para_next, end=end)
+            else:
+                Agent.update_Q_learning(R, State, action,
+                                        para_next=para_next,
+                                        adj=ADJ, end=end)
+                METHOD = "Q-LEARNING"
+
+            action_log[episode, n] = action
+            R_log[episode, n] = R
+            R_max_log[episode, n] = R_max
+            R_min_log[episode, n] = R_min
+            R_mean_log[episode, n] = R_mean
 
     # %% PLOT
+    print("Starts plotting")
 
-    # Plot the directivity
-    plots.directivity(W, 1000, "Receiver")
-    plots.directivity(F, 1000, "Transmitter")
+    # Get the Logs in power decibel
+    R_log_db = 10 * np.log10(R_log)
+    R_max_log_db = 10 * np.log10(R_max_log)
+    R_min_log_db = 10 * np.log10(R_min_log)
+    R_mean_log_db = 10 * np.log10(R_mean_log)
 
-    # Plot the beam direction for the receiver and transmitter
-    # Caculate the Line Of Sight angle for transmitter in GLOBAL coordinate system
-    AoA_LOS_t = np.abs(np.arctan2(pos_log[0][1], pos_log[0][0]) * 180 / np.pi)
+    # plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
+    #                   ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
 
-    # Caculate the Line Of Sight angle for receiver in GLOBAL coordinate system
-    AoA_LOS_r_GLOBAL = np.arctan2(-pos_log[0][1], -pos_log[0][0])
-    AoA_LOS_r_GLOBAL.shape = (N, 1)
+    plots.mean_reward(R_max_log_db, R_mean_log_db, R_min_log_db, R_log_db,
+                      ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
+                      db=True)
 
-    # Caculate the Line Of Sight angle for receiver in LOCAL coordinate system
-    AoA_LOS_r_LOCAL = np.abs(helpers.get_local_angle(AoA_LOS_r_GLOBAL[0][0], Orientation[0][0][2, :]) * 180 / np.pi)
+    plots.positions(pos_log, r_lim)
 
-    plt.figure()
-    plt.title("Receiver")
-    plt.plot(beam_r[0, :], label="Beam")
-    plt.plot(AoA_LOS_r_LOCAL, label="LOS")
-    plt.legend()
-    plt.show()
+    # X-db misallignment probability
+    x_db = 3
+    ACC_xdb = helpers.misalignment_prob(np.mean(R_log_db, axis=0),
+                                        np.mean(R_max_log_db, axis=0), x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
 
-    plt.figure()
-    plt.title("Transmitter")
-    plt.plot(beam_t[0, :], label="Beam")
-    plt.plot(AoA_LOS_t, label="LOS")
-    plt.legend()
-    plt.show()
+    NN = 1000
+    ACC_xdb_NL = helpers.misalignment_prob(np.mean(R_log_db[:, -NN:], axis=0),
+                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
 
-    fig, ax = plt.subplots()
-    ax.set_title("Kunst")
-    ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
-    for m in range(M):
-        ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
+    ACC_xdb_NF = helpers.misalignment_prob(np.mean(R_log_db[:, 0:NN], axis=0),
+                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db)
+    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
 
-    ax.set_xlim([-r_lim, r_lim])
-    ax.set_ylim([-r_lim, r_lim])
-    plt.legend()
-    plt.show()
+    print("Done")
