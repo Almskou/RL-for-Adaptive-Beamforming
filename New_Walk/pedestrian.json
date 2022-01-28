@@ -2,9 +2,13 @@
     "case":         "Pedestrian",
     "vmax":         2,
     "vpref":        [0, 0.7, 1.4],
-    "pvpref":       [0.3, 0.1, 0.4],
+    "pvpref":       [0.1, 0.1, 0.4],
     "vchange":      100,
     "dirchange":    100,
     "acc_max":      0.1,
-    "dec_max":      0.1
+    "dec_max":      0.1,
+    "curvetime":    {
+                    "max":  10,
+                    "min":  5
+                    }
 }

@@ -66,6 +66,8 @@ class track():
         self.pdirchange = delta_t/case["dirchange"]
         self.acc_max = case["acc_max"]
         self.dec_max = case["dec_max"]
+        self.ctmax = case["curvetime"]["max"]
+        self.ctmin = case["curvetime"]["min"]
 
         self.v_target = 0
         self.a = 0
@@ -73,6 +75,8 @@ class track():
         self.curve_time = 0
         self.curve_dt = 0
         self.delta_phi = 0
+
+        self.radius_limit = 200
 
     def change_velocity(self):
         p_uni = np.random.rand()
@@ -89,7 +93,7 @@ class track():
 
         return np.random.rand()*self.vmax
 
-    def update_velocity(self, v):
+    def update_velocity(self, v, delta_t):
         if np.random.rand() < self.pvchange:
             self.v_target = self.change_velocity()
 
@@ -102,7 +106,7 @@ class track():
                 self.a = 0
 
         # Update the velocity bases on target and accelation
-        v = v + self.a
+        v = v + self.a*delta_t
 
         if (((self.a > 0) and (self.v_target < v)) or
                 ((self.a < 0) and (self.v_target > v))):
@@ -113,7 +117,7 @@ class track():
     def update_direction(self, phi, delta_t):
         if np.random.rand() < self.pdirchange:
             # Calculat the number of time step the change in direction needs
-            self.curve_time = np.floor((np.random.rand()*8 + 5)/delta_t)
+            self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/delta_t)
 
             # Resets the tracker
             self.curve_dt = 0
@@ -134,12 +138,12 @@ class track():
 
         return phi
 
-    def update_pos(self, pos, v, phi):
+    def update_pos(self, pos, v, phi, delta_t):
         # x-axis
-        pos[0] = pos[0] + np.cos(phi)*v
+        pos[0] = pos[0] + np.cos(phi)*v*delta_t
 
         # y-axis
-        pos[1] = pos[1] + np.sin(phi)*v
+        pos[1] = pos[1] + np.sin(phi)*v*delta_t
 
         return pos
 
@@ -153,12 +157,30 @@ class track():
         self.v_target = self.change_velocity()
         v[0] = self.v_target
         phi[0] = np.random.rand()*2*np.pi - np.pi
+        pos[0, :] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
 
         # Start running the "simulation"
-        for t in range(1, int(np.floor(T/delta_t))):
-            pos[t, :] = self.update_pos(pos[t-1, :], v[t-1], phi[t-1])
-            v[t] = self.update_velocity(v[t-1])
-            phi[t] = self.update_direction(phi[t-1], delta_t)
+        t = 1
+        i = 0
+        while (t < int(np.floor(T/delta_t))):
+            pos[t, :] = self.update_pos(pos[t-1, :], v[t-1], phi[t-1], delta_t)
+            if np.linalg.norm(pos[t, :]) > self.radius_limit:
+                # Restarts the run
+                print(f'number of tries: {i}')
+                print(f'How far we got: {t}')
+
+                t = 1
+                i += 1
+
+                # Start with new values
+                self.v_target = self.change_velocity()
+                v[0] = self.v_target
+                phi[0] = np.random.rand()*2*np.pi - np.pi
+
+            else:
+                v[t] = self.update_velocity(v[t-1], delta_t)
+                phi[t] = self.update_direction(phi[t-1], delta_t)
+                t += 1
 
         return v, phi, pos
 
@@ -167,12 +189,12 @@ class track():
 if __name__ == "__main__":
     hello_world()
 
-    delta_t = 0.1
+    delta_t = 0.01
     T = 300
 
     case = load_case("pedestrian")
     track = track(case, delta_t)
     v, phi, pos = track.run(T, delta_t)
-    plot_velocity(v, T, delta_t)
-    plot_direction(phi, T, delta_t)
+    # plot_velocity(v, T, delta_t)
+    # plot_direction(phi, T, delta_t)
     plot_walk(pos)
