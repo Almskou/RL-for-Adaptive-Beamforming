@@ -11,5 +11,6 @@
     "curvetime":        {
                         "max":  10,
                         "min":  5
-                        }
+                        },
+    "static_friction":  1
 }

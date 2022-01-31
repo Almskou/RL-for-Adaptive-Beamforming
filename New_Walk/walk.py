@@ -26,8 +26,8 @@ def plot_walk(pos):
     ax = fig.add_subplot(111)
     plt.title("Position")
     plt.plot(pos[:, 0], pos[:, 1])
-    plt.xlim([-200, 200])
-    plt.ylim([-200, 200])
+    plt.xlim([-2000, 2000])
+    plt.ylim([-2000, 2000])
     ax.set_aspect('equal', adjustable='box')
     plt.show()
 
@@ -51,6 +51,30 @@ def plot_direction(phi, T, delta_t):
     plt.show()
 
 
+def plot_vel_dir(v, phi, T, delta_t, case):
+    x_axis = np.linspace(0, T, int(np.floor(T/delta_t)))
+
+    fig, ax1 = plt.subplots()
+
+    color = 'tab:red'
+    ax1.set_xlabel('time (s)')
+    ax1.set_ylabel('dir[rad]', color=color)
+    ax1.plot(x_axis, phi, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.set_ylim([-np.pi, np.pi])
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('vel [m/s]', color=color)  # we already handled the x-label with ax1
+    ax2.plot(x_axis, v, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+    ax2.set_ylim([0, case["vmax"]])
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.show()
+
+
 def load_case(CASE):
     # Load Scenario configuration
     with open(f'{CASE}.json', 'r') as fp:
@@ -70,6 +94,7 @@ class track():
         self.pvchange = delta_t/case["vchange"]
         self.pdirchange = delta_t/case["dirchange"]
         self.pdirchange_stop = case["stop_dirchange"]
+        self.mu_s = case["static_friction"]
         self.acc_max = case["acc_max"]
         self.dec_max = case["dec_max"]
         self.ctmax = case["curvetime"]["max"]
@@ -82,8 +107,15 @@ class track():
         self.curve_dt = 0
         self.delta_phi = 0
         self.v_stop = False
+        self.vrmax = 0
+        self.curve_slow = 0
 
-        self.radius_limit = 200
+        self.radius_limit = 2000
+
+    def set_acceleration(self, acc):
+        if acc:
+            return np.random.rand()*self.acc_max + 0.00001
+        return - (np.random.rand()*self.dec_max + 0.00001)
 
     def change_velocity(self):
         p_uni = np.random.rand()
@@ -106,18 +138,19 @@ class track():
 
             # Get an accelation / deccelation
             if self.v_target > v:
-                self.a = np.random.rand()*self.acc_max
+                self.a = self.set_acceleration(True)
             elif self.v_target < v:
-                self.a = -np.random.rand()*self.dec_max
+                self.a = self.set_acceleration(False)
             else:
                 self.a = 0
 
         # Update the velocity bases on target and accelation
         v = v + self.a*delta_t
 
-        if (((self.a > 0) and (self.v_target < v)) or
-                ((self.a < 0) and (self.v_target > v))):
+        if (((self.a > 0) and (v > self.v_target)) or
+                ((self.a < 0) and (v < self.v_target))):
             v = self.v_target
+            self.a = 0
 
         return v
 
@@ -156,18 +189,38 @@ class track():
                 # Resets the tracker
                 self.curve_dt = 0
 
+                # Target direction change
+                delta_phi_target = (np.random.rand()*2*np.pi - np.pi)
+
                 # Calculate the delta direction change per time step
-                self.delta_phi = (np.random.rand()*2*np.pi - np.pi) / self.curve_time
+                self.delta_phi = delta_phi_target/self.curve_time
+
+                # Calculate the maximum radius
+                rc = self.v_target*self.curve_time*delta_t/np.abs(delta_phi_target)
+
+                # Calculate the maximum velocity which can be taken
+                self.vrmax = np.sqrt(self.mu_s*9.81*rc)
+
+                if self.v_target > self.vrmax:
+                    self.v_target = self.vrmax
+
+                if v > self.vrmax:
+                    self.a = self.set_acceleration(False)
+
+                    self.curve_slow = np.ceil(((v - self.vrmax)/np.abs(self.a))/delta_t)
+                else:
+                    self.curve_slow = 0
 
             # Updates the direction based on the target delta phi
-            if self.curve_dt < self.curve_time:
-                phi = phi + self.delta_phi
+            if self.curve_dt < self.curve_time + self.curve_slow:
+                if self.curve_dt >= self.curve_slow:
+                    phi = phi + self.delta_phi
 
-                # Checks for overflow
-                if phi > np.pi:
-                    phi -= 2*np.pi
-                if phi < -np.pi:
-                    phi += 2*np.pi
+                    # Checks for overflow
+                    if phi > np.pi:
+                        phi -= 2*np.pi
+                    if phi < -np.pi:
+                        phi += 2*np.pi
 
                 self.curve_dt += 1
 
@@ -227,10 +280,11 @@ if __name__ == "__main__":
     delta_t = 0.01
     T = 300
 
-    case = load_case("pedestrian")
+    case = load_case("car")
     track = track(case, delta_t)
     v, phi, pos = track.run(T, delta_t)
 
     plot_velocity(v, T, delta_t, case)
     plot_direction(phi, T, delta_t)
+    plot_vel_dir(v, phi, T, delta_t, case)
     plot_walk(pos)
