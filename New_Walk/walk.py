@@ -22,18 +22,23 @@ def create_track():
 
 
 def plot_walk(pos):
-    plt.figure()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
     plt.title("Position")
     plt.plot(pos[:, 0], pos[:, 1])
+    plt.xlim([-200, 200])
+    plt.ylim([-200, 200])
+    ax.set_aspect('equal', adjustable='box')
     plt.show()
 
 
-def plot_velocity(v, T, delta_t):
+def plot_velocity(v, T, delta_t, case):
     x_axis = np.linspace(0, T, int(np.floor(T/delta_t)))
 
     plt.figure()
     plt.title("Velocity")
     plt.plot(x_axis, v)
+    plt.ylim([0, case["vmax"]])
     plt.show()
 
 
@@ -64,6 +69,7 @@ class track():
         self.pvuni = 1-np.sum(case["pvpref"])
         self.pvchange = delta_t/case["vchange"]
         self.pdirchange = delta_t/case["dirchange"]
+        self.pdirchange_stop = case["stop_dirchange"]
         self.acc_max = case["acc_max"]
         self.dec_max = case["dec_max"]
         self.ctmax = case["curvetime"]["max"]
@@ -75,6 +81,7 @@ class track():
         self.curve_time = 0
         self.curve_dt = 0
         self.delta_phi = 0
+        self.v_stop = False
 
         self.radius_limit = 200
 
@@ -114,27 +121,55 @@ class track():
 
         return v
 
-    def update_direction(self, phi, delta_t):
-        if np.random.rand() < self.pdirchange:
-            # Calculat the number of time step the change in direction needs
-            self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/delta_t)
+    def update_direction(self, phi, delta_t, v):
+        # "Stop-turn-and-go" implemented here
+        if v == 0:
+            # Only changes the target delta phi once
+            if not self.v_stop:
+                if np.random.rand() < self.pdirchange_stop:
+                    if np.random.rand() < 0.5:
+                        delta_phi_target = np.pi/2
+                    else:
+                        delta_phi_target = -np.pi/2
+                else:
+                    delta_phi_target = 0
 
-            # Resets the tracker
-            self.curve_dt = 0
+                # Calculat the number of time step the change in direction needs
+                self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/delta_t)
 
-            # Calculate the delta direction change per time step
-            self.delta_phi = (np.random.rand()*2*np.pi - np.pi) / self.curve_time
+                # Resets the tracker
+                self.curve_dt = 0
 
-        if self.curve_dt < self.curve_time:
-            phi = phi + self.delta_phi
+                # Calculate the delta direction change per time step
+                self.delta_phi = delta_phi_target / self.curve_time
 
-            # Checks for overflow
-            if phi > np.pi:
-                phi -= 2*np.pi
-            if phi < -np.pi:
-                phi += 2*np.pi
+                self.v_stop = True
 
-            self.curve_dt += 1
+        else:
+            self.v_stop = False
+
+            # Change target delta_phi, while the user is moving
+            if np.random.rand() < self.pdirchange:
+                # Calculat the number of time step the change in direction needs
+                self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/delta_t)
+
+                # Resets the tracker
+                self.curve_dt = 0
+
+                # Calculate the delta direction change per time step
+                self.delta_phi = (np.random.rand()*2*np.pi - np.pi) / self.curve_time
+
+            # Updates the direction based on the target delta phi
+            if self.curve_dt < self.curve_time:
+                phi = phi + self.delta_phi
+
+                # Checks for overflow
+                if phi > np.pi:
+                    phi -= 2*np.pi
+                if phi < -np.pi:
+                    phi += 2*np.pi
+
+                self.curve_dt += 1
 
         return phi
 
@@ -179,7 +214,7 @@ class track():
 
             else:
                 v[t] = self.update_velocity(v[t-1], delta_t)
-                phi[t] = self.update_direction(phi[t-1], delta_t)
+                phi[t] = self.update_direction(phi[t-1], delta_t, v[t])
                 t += 1
 
         return v, phi, pos
@@ -195,6 +230,7 @@ if __name__ == "__main__":
     case = load_case("pedestrian")
     track = track(case, delta_t)
     v, phi, pos = track.run(T, delta_t)
-    # plot_velocity(v, T, delta_t)
-    # plot_direction(phi, T, delta_t)
+
+    plot_velocity(v, T, delta_t, case)
+    plot_direction(phi, T, delta_t)
     plot_walk(pos)
