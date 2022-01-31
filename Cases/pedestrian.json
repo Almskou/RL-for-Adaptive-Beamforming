@@ -1,5 +1,16 @@
 {
     "case":             "Pedestrian",
+    "rlim":             200,
+    "fc":               28e9,
+    "receiver":         {
+                        "antennea": 4,
+                        "beams": 8
+                        },
+    "transmitter":      {
+                        "antennea": 4,
+                        "beams": 8
+                        },
+    "P_t":              10000,
     "vmax":             2,
     "vpref":            [0, 0.7, 1.4],
     "pvpref":           [0.1, 0.1, 0.4],

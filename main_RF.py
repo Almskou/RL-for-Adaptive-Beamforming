@@ -16,15 +16,15 @@ import classes
 import plots
 
 # %% Global Parameters
-RUN = False
+RUN = True
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False   # Include location in polar coordinates in the state
-FILENAME = "test_case_1"  # After the "data_" or "data_pos_"
-CASE = "walk"  # "walk" or "car"
+FILENAME = "test_case_car"  # After the "data_" or "data_pos_"
+CASE = "car"  # "pedestrian" or "car"
 
 # %% main
 if __name__ == "__main__":
@@ -33,6 +33,17 @@ if __name__ == "__main__":
     with open(f'Cases/{CASE}.json', 'r') as fp:
         case = json.load(fp)
 
+    # ----------- Channel Simulation Parameters -----------
+    # Number of steps in a episode
+    N = 300
+
+    # Sample Period [s]
+    sample_period = 0.01
+
+    # Number of episodes
+    M = 2
+
+    # ----------- Reinforcement Learning Parameters -----------
     # State parameters
     n_actions = 3
     n_ori = 3
@@ -40,28 +51,16 @@ if __name__ == "__main__":
     dist_res = 8
     angle_res = 8
 
-    # Number of steps in a episode
-    N = 50000
-
-    # Chunk size (More "episodes" per episode)
-    chunksize = 25000
-
-    # Number of episodes
-    M = 5
+    # Chunk size, number of samples taken out.
+    chunksize = 300
 
     # Number of episodes per chunk
-    Episodes = 20
+    Episodes = 2
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
 
-    # Stepsize limits [m] [min, max]
-    stepsize = [case["stepsize"]["min"],
-                case["stepsize"]["max"]]
-
-    # Probability for during a big turn
-    change_dir = case["change_dir"]
-
+    # ----------- Extracting variables from case -----------
     # Number of antennae
     Nt = case["transmitter"]["antennea"]  # Transmitter
     Nr = case["receiver"]["antennea"]  # Receiver
@@ -77,26 +76,25 @@ if __name__ == "__main__":
     # Possible scenarios for Quadriga simulations
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
+    # ----------- Create the data -----------
     t_start = time()
     # Load or create the data
-    tmp, pos_log = helpers.get_data(RUN, ENGINE,
-                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                    [fc, N, M, r_lim, stepsize, scenarios, change_dir])
+    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
+                                            f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
+                                            [fc, N, M, r_lim, sample_period, scenarios])
     print(f"Took: {time() - t_start}", flush=True)
-
-    if len(pos_log[0, 0, :]) > N:
-        pos_log = pos_log[:, :, 0:N]
 
     # Re-affirm that "M" matches data
     M = len(pos_log)
 
-    # Extract data from Quadriga simulation
+    # ----------- Extract data from Quadriga simulation -----------
     print("Extracting data", flush=True)
-    AoA_Global = tmp[0][0]  # Angle of Arrival in Global coord. system
-    AoD_Global = tmp[1][0]  # Angle of Departure in Global coord. system
-    coeff = tmp[2][0]  # Channel Coefficients
-    Orientation = tmp[3][0]  # Orientation in Global coord. system
+    AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
+    AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
+    coeff = channel_par[2][0]  # Channel Coefficients
+    Orientation = channel_par[3][0]  # Orientation in Global coord. system
 
+    # ----------- Prepare the simulation - Channel -----------
     print("Starts calculating", flush=True)
     # Make ULA antenna positions - Transmitter
     r_r = np.zeros((2, Nr))
@@ -121,6 +119,7 @@ if __name__ == "__main__":
     for m in range(M):
         AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
 
+    # ----------- Prepare the simulation - RL -----------
     # Create the Environment
     Env = classes.Environment(W, F, Nt, Nr,
                               r_r, r_t, fc, P_t)
@@ -150,10 +149,7 @@ if __name__ == "__main__":
     else:
         angle_discrete = None
 
-    # Number of chuncks
-    nchunk = int(np.floor(N/chunksize))
-
-    # RUN
+    # ----------- Starts the simulation -----------
     action_log = np.zeros([Episodes, chunksize])
     R_log = np.zeros([Episodes, chunksize])
     R_max_log = np.zeros([Episodes, chunksize])
@@ -166,6 +162,8 @@ if __name__ == "__main__":
 
         # Create the State
         State_tmp = []
+
+        # Initate a random beam sequence
         State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
 
         if DIST or LOCATION:

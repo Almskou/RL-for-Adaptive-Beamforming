@@ -128,7 +128,7 @@ def misalignment_prob(R_db, R_max_db, x_db):
     return np.mean(tmp)
 
 
-def get_data(RUN, ENGINE, pos_log_name, data_name, para):
+def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.
     Parameters are either loaded from earlier simulations,
@@ -141,7 +141,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
     :param para: List of simulation settings/parameters used in the simulations
     :return:
     """
-    [fc, N, M, r_lim, stepsize, scenarios, change_dir] = para
+    [fc, N, M, r_lim, sample_period, scenarios] = para
 
     # Load the data
     if not RUN:
@@ -166,7 +166,7 @@ def get_data(RUN, ENGINE, pos_log_name, data_name, para):
         print("Creating track")
 
         # Create the class
-        track = classes.Track(r_lim, stepsize, change_dir)
+        track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim)
 
         # Create the tracks
         pos_log = []

@@ -121,6 +121,9 @@ def positions(pos_log, r_lim):
     ax.set_ylim([-r_lim, r_lim])
     if len(pos_log) < 10:
         plt.legend()
+
+    ax.set_aspect('equal', adjustable='box')
+
     plt.show()
 
 
