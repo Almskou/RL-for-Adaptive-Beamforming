@@ -1,3 +1,6 @@
 numpy==1.19.2
 oct2py==5.2.0
 scipy==1.5.2
+
+matplotlib~=3.4.3
+tqdm~=4.62.3

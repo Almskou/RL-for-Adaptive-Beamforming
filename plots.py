@@ -112,13 +112,17 @@ def directivity(W, N, title):
 
 def positions(pos_log, r_lim):
     fig, ax = plt.subplots()
-    ax.set_title("Kunst")
+    ax.set_title("Random Walk")
+    ax.set_ylabel("Distance from transmitter [m]")
+    ax.set_xlabel("Distance from transmitter [m]")
     ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
+
     for m in range(len(pos_log)):
         ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
 
     ax.set_xlim([-r_lim, r_lim])
     ax.set_ylim([-r_lim, r_lim])
+    ax.plot(0, 0,'X', label="Transmitter")
     if len(pos_log) < 10:
         plt.legend()
 
