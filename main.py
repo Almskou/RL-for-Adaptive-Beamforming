@@ -16,7 +16,7 @@ import classes
 import plots
 
 # %% Global Parameters
-RUN = True
+RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
@@ -93,6 +93,10 @@ if __name__ == "__main__":
     AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
     coeff = channel_par[2][0]  # Channel Coefficients
     Orientation = channel_par[3][0]  # Orientation in Global coord. system
+
+    if CASE == 'pedestrian':
+        # Add some random noise to the orientation to simulate a moving person
+        Orientation = helpers.noisy_ori(Orientation)
 
     # ----------- Prepare the simulation - Channel -----------
     print("Starts calculating", flush=True)

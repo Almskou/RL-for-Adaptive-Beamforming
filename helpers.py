@@ -93,13 +93,12 @@ def discrete_ori(Ori, N):
 
 
 def discrete_angle(pos, N):
-
     Angle = np.arctan2(pos[1, :], pos[0, :])
     # Angle: [0 deg, 360 deg] in radians
-    Angle[Angle < 0] += 2*np.pi
+    Angle[Angle < 0] += 2 * np.pi
 
     # Discrete angles
-    angles = [(((n + 1) * 2*np.pi) / N) for n in range(N - 1)]
+    angles = [(((n + 1) * 2 * np.pi) / N) for n in range(N - 1)]
 
     Angle_discrete = np.zeros(np.shape(Angle))
 
@@ -114,8 +113,8 @@ def discrete_angle(pos, N):
 
 def discrete_dist(pos, N, r_lim):
     pos_norm = np.linalg.norm(pos[0:2, :], axis=0)
-    base = int(r_lim/N)
-    return (base*np.round(pos_norm/base)).astype(int)
+    base = int(r_lim / N)
+    return (base * np.round(pos_norm / base)).astype(int)
 
 
 def misalignment_prob(R_db, R_max_db, x_db):
@@ -128,6 +127,39 @@ def misalignment_prob(R_db, R_max_db, x_db):
 
     # Return the x_db misalignment probability
     return np.mean(tmp)
+
+
+def noisy_ori(ori_vector):
+    # "smooting" factor in random walk filter
+    K = 21
+    new_orientation = np.empty_like(ori_vector)
+    for idx, episode in enumerate(ori_vector):
+        z_axis = episode[0][2]
+
+        # generate the random walk
+        a_bar = np.zeros(len(z_axis) + K)
+        for i in range(len(z_axis) + K - 1):
+            a_bar[i + 1] = a_bar[i] + np.random.normal(0, 0.5 * np.pi / 180)
+
+        # generate the additive orientation noise as MA filtered random walk
+        a = np.zeros(len(z_axis))
+        for i in range(len(z_axis)):
+            a[i] = np.sum(a_bar[i:i + K]) / K
+
+        # Add the noise to original data and wrap angles to range [-pi:pi] for correct signs
+        res_z_axis = z_axis + a
+        for i in range(len(a)):
+            while res_z_axis[i] > np.pi:
+                res_z_axis[i] -= 2 * np.pi
+
+            while res_z_axis[i] < -1 * np.pi:
+                res_z_axis[i] += 2 * np.pi
+
+        res = np.zeros((3, len(z_axis)))
+        res[2] = res_z_axis
+        new_orientation[idx, 0] = res
+
+    return new_orientation
 
 
 def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
@@ -149,7 +181,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
     if not RUN:
         try:
             print("Loading data")
-            pos_log = scio.loadmat("Data_sets/"+pos_log_name)
+            pos_log = scio.loadmat("Data_sets/" + pos_log_name)
             pos_log = pos_log["pos_log"]
 
         except IOError:
@@ -157,7 +189,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             print(f"Datafile {pos_log_name} not found")
 
         try:
-            tmp = scio.loadmat("Data_sets/"+data_name)
+            tmp = scio.loadmat("Data_sets/" + data_name)
             tmp = tmp["output"]
 
         except IOError:
@@ -187,7 +219,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
 
         print('track done')
         # Save the data
-        scio.savemat("Data_sets/"+pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
+        scio.savemat("Data_sets/" + pos_log_name, {"pos_log": pos_log, "scenarios": scenarios})
 
         if ENGINE == "octave":
             try:
@@ -207,7 +239,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             # Run the scenario to get the simulated channel parameters
             if octave.get_data(fc, pos_log_name, data_name, ENGINE):
                 try:
-                    tmp = scio.loadmat("Data_sets/"+data_name)
+                    tmp = scio.loadmat("Data_sets/" + data_name)
                     tmp = tmp["output"]
                 except FileNotFoundError:
                     raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
@@ -229,7 +261,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             eng.addpath(eng.genpath(f"{os.getcwd()}/Quadriga"))
             if eng.get_data(fc, pos_log_name, data_name, ENGINE):
                 try:
-                    tmp = scio.loadmat("Data_sets/"+data_name)
+                    tmp = scio.loadmat("Data_sets/" + data_name)
                     tmp = tmp["output"]
 
                 except FileNotFoundError:
