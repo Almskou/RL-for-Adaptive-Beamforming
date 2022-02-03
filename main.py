@@ -3,16 +3,15 @@
 @author: Dennis Sand, Nicolai Almskou,
          Peter Fisker & Victor Nissen
 """
-
 # %% Imports
+import json
 from time import time
 
 import numpy as np
-import json
 from tqdm import tqdm
 
-import helpers
 import classes
+import helpers
 import plots
 
 # %% Global Parameters
@@ -22,7 +21,7 @@ METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
-LOCATION = False   # Include location in polar coordinates in the state
+LOCATION = False  # Include location in polar coordinates in the state
 FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
 CASE = "car_highway"  # "pedestrian" or "car"
 
@@ -34,6 +33,9 @@ if __name__ == "__main__":
         case = json.load(fp)
 
     # ----------- Channel Simulation Parameters -----------
+    # Possible scenarios for Quadriga simulations
+    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
+
     # Number of steps in a episode
     N = 1300
 
@@ -41,7 +43,7 @@ if __name__ == "__main__":
     sample_period = 0.01
 
     # Number of episodes
-    M = 9
+    M = 2
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
@@ -72,9 +74,6 @@ if __name__ == "__main__":
     fc = case["fc"]  # Center frequency
     lambda_ = 3e8 / fc  # Wave length
     P_t = case["P_t"]  # Transmission power
-
-    # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # ----------- Create the data -----------
     t_start = time()
@@ -188,13 +187,13 @@ if __name__ == "__main__":
         State = classes.State(State_tmp)
 
         # Choose data
-        data_idx = np.random.randint(0, N-chunksize) if (N-chunksize) else 0
+        data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
         path_idx = np.random.randint(0, M)
 
         # Update the enviroment data
-        Env.update_data(AoA_Local[path_idx][data_idx:data_idx+chunksize],
-                        AoD_Global[path_idx][0][data_idx:data_idx+chunksize],
-                        coeff[path_idx][0][data_idx:data_idx+chunksize])
+        Env.update_data(AoA_Local[path_idx][data_idx:data_idx + chunksize],
+                        AoD_Global[path_idx][0][data_idx:data_idx + chunksize],
+                        coeff[path_idx][0][data_idx:data_idx + chunksize])
 
         # Initiate the action
         action = np.random.choice(action_space)
@@ -204,7 +203,7 @@ if __name__ == "__main__":
         for n in range(chunksize):
             if ORI:
                 ori = int(ori_discrete[path_idx, data_idx + n])
-                if n < chunksize-1:
+                if n < chunksize - 1:
                     next_ori = int(ori_discrete[path_idx, data_idx + n + 1])
             else:
                 ori = None
@@ -212,7 +211,7 @@ if __name__ == "__main__":
 
             if DIST or LOCATION:
                 dist = dist_discrete[path_idx, data_idx + n]
-                if n < chunksize-1:
+                if n < chunksize - 1:
                     next_dist = dist_discrete[path_idx, data_idx + n + 1]
             else:
                 dist = None
@@ -220,13 +219,13 @@ if __name__ == "__main__":
 
             if LOCATION:
                 angle = angle_discrete[path_idx, data_idx + n]
-                if n < chunksize-1:
+                if n < chunksize - 1:
                     next_angle = angle_discrete[path_idx, data_idx + n + 1]
             else:
                 angle = None
                 next_angle = None
 
-            if n == chunksize-1:
+            if n == chunksize - 1:
                 end = True
 
             para = [dist, ori, angle]
@@ -270,10 +269,10 @@ if __name__ == "__main__":
     print("Starts plotting")
 
     # Get the Logs in power decibel
-    R_log_db = 10*np.log10(R_log)
-    R_max_log_db = 10*np.log10(R_max_log)
-    R_min_log_db = 10*np.log10(R_min_log)
-    R_mean_log_db = 10*np.log10(R_mean_log)
+    R_log_db = 10 * np.log10(R_log)
+    R_max_log_db = 10 * np.log10(R_max_log)
+    R_min_log_db = 10 * np.log10(R_min_log)
+    R_mean_log_db = 10 * np.log10(R_mean_log)
 
     # plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
     #                   ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")

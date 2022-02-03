@@ -3,10 +3,9 @@
 @author: Dennis Sand, Nicolai Almskou,
          Peter Fisker & Victor Nissen
 """
-
 # %% Imports
-import numpy as np
 from collections import defaultdict
+import numpy as np
 
 import helpers
 
@@ -20,9 +19,9 @@ class Track():
         self.vmax = case["vmax"]
         self.vmin = case["vmin"]
         self.pvpref = case["pvpref"]
-        self.pvuni = 1-np.sum(case["pvpref"])
-        self.pvchange = self.delta_t/case["vchange"]
-        self.pdirchange = self.delta_t/case["dirchange"]
+        self.pvuni = 1 - np.sum(case["pvpref"])
+        self.pvchange = self.delta_t / case["vchange"]
+        self.pdirchange = self.delta_t / case["dirchange"]
         self.pdirchange_stop = case["stop_dirchange"]
         self.mu_s = case["static_friction"]
         self.acc_max = case["acc_max"]
@@ -44,8 +43,8 @@ class Track():
 
     def set_acceleration(self, acc):
         if acc:
-            return np.random.rand()*self.acc_max + 0.00001
-        return - (np.random.rand()*self.dec_max + 0.00001)
+            return np.random.rand() * self.acc_max + 0.00001
+        return - (np.random.rand() * self.dec_max + 0.00001)
 
     def change_velocity(self):
         p_uni = np.random.rand()
@@ -62,7 +61,7 @@ class Track():
                 return self.vpref[i]
 
         # Return a velocity from a uniform dist. between set min and max
-        return np.random.rand()*(self.vmax - self.vmin) + self.vmin
+        return np.random.rand() * (self.vmax - self.vmin) + self.vmin
 
     def update_velocity(self, v):
         if np.random.rand() < self.pvchange:
@@ -77,7 +76,7 @@ class Track():
                 self.a = 0
 
         # Update the velocity bases on target and accelation
-        v = v + self.a*self.delta_t
+        v = v + self.a * self.delta_t
 
         if (((self.a > 0) and (v > self.v_target)) or
                 ((self.a < 0) and (v < self.v_target))):
@@ -93,14 +92,14 @@ class Track():
             if not self.v_stop:
                 if np.random.rand() < self.pdirchange_stop:
                     if np.random.rand() < 0.5:
-                        delta_phi_target = np.pi/2
+                        delta_phi_target = np.pi / 2
                     else:
-                        delta_phi_target = -np.pi/2
+                        delta_phi_target = -np.pi / 2
                 else:
                     delta_phi_target = 0
 
                 # Calculat the number of time step the change in direction needs
-                self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/self.delta_t)
+                self.curve_time = np.floor((np.random.rand() * (self.ctmax - self.ctmin) + self.ctmin) / self.delta_t)
 
                 # Resets the tracker
                 self.curve_dt = 0
@@ -116,22 +115,22 @@ class Track():
             # Change target delta_phi, while the user is moving
             if np.random.rand() < self.pdirchange:
                 # Calculat the number of time step the change in direction needs
-                self.curve_time = np.floor((np.random.rand()*(self.ctmax-self.ctmin) + self.ctmin)/self.delta_t)
+                self.curve_time = np.floor((np.random.rand() * (self.ctmax - self.ctmin) + self.ctmin) / self.delta_t)
 
                 # Resets the tracker
                 self.curve_dt = 0
 
                 # Target direction change
-                delta_phi_target = (np.random.rand()*2*np.pi - np.pi)
+                delta_phi_target = (np.random.rand() * 2 * np.pi - np.pi)
 
                 # Calculate the delta direction change per time step
-                self.delta_phi = delta_phi_target/self.curve_time
+                self.delta_phi = delta_phi_target / self.curve_time
 
                 # Calculate the maximum radius
-                rc = self.v_target*self.curve_time*self.delta_t/np.abs(delta_phi_target)
+                rc = self.v_target * self.curve_time * self.delta_t / np.abs(delta_phi_target)
 
                 # Calculate the maximum velocity which can be taken
-                self.vrmax = np.sqrt(self.mu_s*9.81*rc)
+                self.vrmax = np.sqrt(self.mu_s * 9.81 * rc)
 
                 if self.v_target > self.vrmax:
                     self.v_target = self.vrmax
@@ -139,7 +138,7 @@ class Track():
                 if v > self.vrmax:
                     self.a = self.set_acceleration(False)
 
-                    self.curve_slow = np.ceil(((v - self.vrmax)/np.abs(self.a))/self.delta_t)
+                    self.curve_slow = np.ceil(((v - self.vrmax) / np.abs(self.a)) / self.delta_t)
                 else:
                     self.curve_slow = 0
 
@@ -157,19 +156,19 @@ class Track():
 
     def update_pos(self, pos, v, phi):
         # x-axis
-        pos[0] = pos[0] + np.cos(phi)*v*self.delta_t
+        pos[0] = pos[0] + np.cos(phi) * v * self.delta_t
 
         # y-axis
-        pos[1] = pos[1] + np.sin(phi)*v*self.delta_t
+        pos[1] = pos[1] + np.sin(phi) * v * self.delta_t
 
         return pos
 
     def angle_overflow(self, phi):
         # Checks for overflow
         if phi > np.pi:
-            phi -= 2*np.pi
+            phi -= 2 * np.pi
         if phi < -np.pi:
-            phi += 2*np.pi
+            phi += 2 * np.pi
 
         return phi
 
@@ -184,15 +183,15 @@ class Track():
 
         elif self.env.lower() == "highway":
             # Choose a start position on the edge based on a random chosen angle
-            egde_angle = (np.random.rand()*2*np.pi - np.pi)
-            pos = self.radius_limit*np.array([np.cos(egde_angle), np.sin(egde_angle)])
+            egde_angle = (np.random.rand() * 2 * np.pi - np.pi)
+            pos = self.radius_limit * np.array([np.cos(egde_angle), np.sin(egde_angle)])
 
         else:
             pos = np.array([0, 0])
 
         # Direction
         if self.env.lower() == "urban":
-            phi = np.random.rand()*2*np.pi - np.pi
+            phi = np.random.rand() * 2 * np.pi - np.pi
 
         elif self.env.lower() == "highway":
             # Limit the start direction so it does not go out of the circle at the start
@@ -204,9 +203,9 @@ class Track():
             dir_center = self.angle_overflow(dir_center)
 
             # Draw from a uniform distribution around the center angle
-            edge_max = np.pi/6
-            edge_min = -np.pi/6
-            phi = dir_center + np.random.rand()*(edge_max - edge_min) + edge_min
+            edge_max = np.pi / 6
+            edge_min = -np.pi / 6
+            phi = dir_center + np.random.rand() * (edge_max - edge_min) + edge_min
 
             # Checks for overflow
             phi = self.angle_overflow(phi)
@@ -230,7 +229,7 @@ class Track():
         t = 1
         i = 0
         while (t < N):
-            pos[0:2, t] = self.update_pos(pos[0:2, t-1], v[t-1], phi[t-1])
+            pos[0:2, t] = self.update_pos(pos[0:2, t - 1], v[t - 1], phi[t - 1])
             if np.linalg.norm(pos[0:2, t]) > self.radius_limit:
                 # Restarts the run
                 print(f'number of tries: {i}')
@@ -243,8 +242,8 @@ class Track():
                 v[0], phi[0], pos[0:2, 0] = self.initialise_run()
 
             else:
-                v[t] = self.update_velocity(v[t-1])
-                phi[t] = self.update_direction(phi[t-1], v[t])
+                v[t] = self.update_velocity(v[t - 1])
+                phi[t] = self.update_direction(phi[t - 1], v[t])
                 t += 1
 
         return pos
