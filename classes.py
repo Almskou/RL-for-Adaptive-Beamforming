@@ -15,8 +15,10 @@ import helpers
 class Track():
     def __init__(self, case, delta_t, r_lim):
         self.delta_t = delta_t
+        self.env = case["environment"]
         self.vpref = case["vpref"]
         self.vmax = case["vmax"]
+        self.vmin = case["vmin"]
         self.pvpref = case["pvpref"]
         self.pvuni = 1-np.sum(case["pvpref"])
         self.pvchange = self.delta_t/case["vchange"]
@@ -50,6 +52,7 @@ class Track():
         p_pref = self.pvpref[0]
         l_pref = len(self.pvpref)
 
+        # Checks if a pref. velocity should be chosen
         if p_uni < p_pref:
             return self.vpref[0]
 
@@ -58,7 +61,8 @@ class Track():
             if (p_uni > p_pref - self.pvpref[i]) and (p_uni < p_pref):
                 return self.vpref[i]
 
-        return np.random.rand()*self.vmax
+        # Return a velocity from a uniform dist. between set min and max
+        return np.random.rand()*(self.vmax - self.vmin) + self.vmin
 
     def update_velocity(self, v):
         if np.random.rand() < self.pvchange:
@@ -145,10 +149,7 @@ class Track():
                     phi = phi + self.delta_phi
 
                     # Checks for overflow
-                    if phi > np.pi:
-                        phi -= 2*np.pi
-                    if phi < -np.pi:
-                        phi += 2*np.pi
+                    phi = self.angle_overflow(phi)
 
                 self.curve_dt += 1
 
@@ -163,6 +164,58 @@ class Track():
 
         return pos
 
+    def angle_overflow(self, phi):
+        # Checks for overflow
+        if phi > np.pi:
+            phi -= 2*np.pi
+        if phi < -np.pi:
+            phi += 2*np.pi
+
+        return phi
+
+    def initialise_run(self):
+        # Velocity
+        self.v_target = self.change_velocity()
+        v = self.v_target
+
+        # Position
+        if self.env.lower() == "urban":
+            pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+
+        elif self.env.lower() == "highway":
+            # Choose a start position on the edge based on a random chosen angle
+            egde_angle = (np.random.rand()*2*np.pi - np.pi)
+            pos = self.radius_limit*np.array([np.cos(egde_angle), np.sin(egde_angle)])
+
+        else:
+            pos = np.array([0, 0])
+
+        # Direction
+        if self.env.lower() == "urban":
+            phi = np.random.rand()*2*np.pi - np.pi
+
+        elif self.env.lower() == "highway":
+            # Limit the start direction so it does not go out of the circle at the start
+
+            # Get the angle which points at the center
+            dir_center = egde_angle + np.pi
+
+            # Checks for overflow
+            dir_center = self.angle_overflow(dir_center)
+
+            # Draw from a uniform distribution around the center angle
+            edge_max = np.pi/6
+            edge_min = -np.pi/6
+            phi = dir_center + np.random.rand()*(edge_max - edge_min) + edge_min
+
+            # Checks for overflow
+            phi = self.angle_overflow(phi)
+
+        else:
+            phi = 0
+
+        return v, phi, pos
+
     def run(self, N):
         # Create a empty array for the velocities
         v = np.zeros([N])
@@ -171,10 +224,7 @@ class Track():
         pos[2, :] = 1.5
 
         # Get start values
-        self.v_target = self.change_velocity()
-        v[0] = self.v_target
-        phi[0] = np.random.rand()*2*np.pi - np.pi
-        pos[0:2, 0] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+        v[0], phi[0], pos[0:2, 0] = self.initialise_run()
 
         # Start running the "simulation"
         t = 1
@@ -190,10 +240,7 @@ class Track():
                 i += 1
 
                 # Start with new values
-                self.v_target = self.change_velocity()
-                v[0] = self.v_target
-                phi[0] = np.random.rand()*2*np.pi - np.pi
-                pos[0:2, 0] = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+                v[0], phi[0], pos[0:2, 0] = self.initialise_run()
 
             else:
                 v[t] = self.update_velocity(v[t-1])

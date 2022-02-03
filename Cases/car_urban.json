@@ -1,5 +1,5 @@
 {
-    "case":             "Pedestrian",
+    "case":             "Car_Urban",
     "environment":      "Urban",
     "rlim":             200,
     "fc":               28e9,
@@ -12,18 +12,18 @@
                         "beams": 8
                         },
     "P_t":              10000,
-    "vmax":             2,
+    "vmax":             14,
     "vmin":             0,
-    "vpref":            [0, 0.7, 1.4],
-    "pvpref":           [0.1, 0.1, 0.4],
-    "vchange":          100,
-    "dirchange":        100,
+    "vpref":            [0, 8.3, 14],
+    "pvpref":           [0.3, 0.1, 0.4],
+    "vchange":          50,
+    "dirchange":        50,
     "stop_dirchange":   0.33,
-    "acc_max":          0.1,
-    "dec_max":          0.1,
+    "acc_max":          2.5,
+    "dec_max":          4,
     "curvetime":        {
                         "max":  10,
-                        "min":  5
+                        "min":  1
                         },
-    "static_friction":  1
+    "static_friction":  0.7
 }

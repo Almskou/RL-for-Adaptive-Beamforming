@@ -6,11 +6,13 @@
 
 # %% Imports
 import os
+import sys
 
 import numpy as np
 import scipy.io as scio
 
 import classes
+import plots
 
 
 # %% Functions
@@ -168,10 +170,20 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         # Create the class
         track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim)
 
-        # Create the tracks
-        pos_log = []
-        for m in range(M):
-            pos_log.append(track.run(N))
+        pos_log_done = False
+        while pos_log_done is False:
+            # Create the tracks
+            pos_log = []
+            for m in range(M):
+                pos_log.append(track.run(N))
+
+            plots.positions(pos_log, r_lim)
+
+            user_input = input("Does the created track(s) look fine (yes/no/stop)")
+            if user_input.lower() == "yes":
+                pos_log_done = True
+            if user_input.lower() == "stop":
+                sys.exit("Program stopped by user")
 
         print('track done')
         # Save the data

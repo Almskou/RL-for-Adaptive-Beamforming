@@ -23,8 +23,8 @@ ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False   # Include location in polar coordinates in the state
-FILENAME = "test_case_car"  # After the "data_" or "data_pos_"
-CASE = "car"  # "pedestrian" or "car"
+FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
+CASE = "car_highway"  # "pedestrian" or "car"
 
 # %% main
 if __name__ == "__main__":
@@ -35,13 +35,13 @@ if __name__ == "__main__":
 
     # ----------- Channel Simulation Parameters -----------
     # Number of steps in a episode
-    N = 300
+    N = 1300
 
     # Sample Period [s]
     sample_period = 0.01
 
     # Number of episodes
-    M = 2
+    M = 9
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
