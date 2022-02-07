@@ -19,8 +19,8 @@
     "vchange":          100,
     "dirchange":        100,
     "stop_dirchange":   0.33,
-    "acc_max":          0.1,
-    "dec_max":          0.1,
+    "acc_max":          1.44,
+    "dec_max":          0.6,
     "curvetime":        {
                         "max":  10,
                         "min":  5
