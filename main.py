@@ -16,14 +16,14 @@ import plots
 
 # %% Global Parameters
 RUN = False
-ENGINE = "MATLAB"  # "octave" OR "MATLAB"
+ENGINE = "octave"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
-CASE = "car_highway"  # "pedestrian" or "car"
+FILENAME = "car_urban_LOS_Fisker"  # After the "data_" or "data_pos_"
+CASE = "car_urban" # "car_highway"  # "pedestrian" or "car"
 
 # %% main
 if __name__ == "__main__":
@@ -37,27 +37,27 @@ if __name__ == "__main__":
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # Number of steps in a episode
-    N = 1300
+    N = 1900
 
     # Sample Period [s]
     sample_period = 0.01
 
     # Number of episodes
-    M = 2
+    M = 5
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
-    n_actions = 3
+    n_actions = 2
     n_ori = 3
 
     dist_res = 8
     angle_res = 8
 
     # Chunk size, number of samples taken out.
-    chunksize = 300
+    chunksize = 1300
 
     # Number of episodes per chunk
-    Episodes = 2
+    Episodes = 20
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
@@ -163,11 +163,8 @@ if __name__ == "__main__":
         # Create the Agent
         Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
 
-        # Create the State
-        State_tmp = []
-
-        # Initate a random beam sequence
-        State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
+        # Initiate the State at a random beam sequence
+        State_tmp = [list(np.random.randint(0, Nbr, n_actions))]
 
         if DIST or LOCATION:
             State_tmp.append(list([dist_discrete[0]]))
