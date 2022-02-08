@@ -11,7 +11,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
     l.tx_position = [0, 0, 10]';                            % Set BS posittions
     
     l.rx_track = qd_track();
-
+    
     sp = size(pos_log);  
     sc = size(scenarios);
 
@@ -20,6 +20,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
     chunksize = 20000;
     for episode = 1:sp(1)
         sce_index = randi([1, sc(1)]);
+        l.rx_track.scenario = strtrim(scenarios(sce_index, :));             % Set propagation scenario
         for chunk = 1:ceil(sp(3)/chunksize)
             if chunk*chunksize>sp(3)
                 end_idx = sp(3);
@@ -28,14 +29,14 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
             end
             l.rx_track.positions=squeeze(pos_log(episode, :, (chunk-1)*chunksize + 1:end_idx));   % Set start position and MT height
 
-            l.rx_track.scenario = strtrim(scenarios(sce_index, :));             % Set propagation scenario
+            
             l.rx_track.calc_orientation();
     
             l.rx_track.no_segments = l.rx_track.no_snapshots;       % Use spatial consisteny for mobility
     
             b = l.init_builder;                                     % Initializes channel builder
     
-            b.gen_parameters(0);                               % Clears LSF SSF and SOS parameters
+%             b.gen_parameters(0);                            % Clears LSF SSF and SOS parameters
             b.gen_parameters(5);                            % Generates all missing parameters
         
             c = get_channels( b );                          % Generate channel coefficients
