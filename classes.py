@@ -41,6 +41,30 @@ class Track():
 
         self.radius_limit = r_lim
 
+        # Base Stations Coordinates
+        self.pos_bs = self.get_bs_pos()
+
+    def get_bs_pos(self, olap=1):
+        # Length to the points of the hexagon
+        hex_point = self.radius_limit*olap
+
+        # Length to the top of the hexagon
+        hex_top = np.sqrt((hex_point**2) - (hex_point/2)**2)
+
+        # a
+        a = np.array([0, 0])
+
+        # b
+        b = np.array([a[0] - hex_point*1.5, hex_top])
+
+        # d
+        d = np.array([a[0] + hex_point*1.5, hex_top])
+
+        # c
+        c = np.array([a[0], 2*hex_top])
+
+        return np.array([a, b, c, d]).T
+
     def set_acceleration(self, acc):
         if acc:
             return np.random.rand() * self.acc_max + 0.00001
@@ -179,7 +203,13 @@ class Track():
 
         # Position
         if self.env.lower() == "urban":
-            pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2)
+            c_idx = np.random.randint(0, 6)
+
+            if c_idx < 4:
+                pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2) + self.pos_bs[:, c_idx]
+
+            else:
+                pos = np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) + np.array([-100, 173])
 
         elif self.env.lower() == "highway":
             # Choose a start position on the edge based on a random chosen angle
@@ -230,7 +260,9 @@ class Track():
         i = 0
         while (t < N):
             pos[0:2, t] = self.update_pos(pos[0:2, t - 1], v[t - 1], phi[t - 1])
-            if np.linalg.norm(pos[0:2, t]) > self.radius_limit:
+
+            # Checks if the positions is inside the search radius of minimum one of the base stations
+            if np.sum(np.linalg.norm(pos[0:2, t] - self.pos_bs.T, axis=1) < self.radius_limit) > 0:
                 # Restarts the run
                 print(f'number of tries: {i}')
                 print(f'How far we got: {t}')
