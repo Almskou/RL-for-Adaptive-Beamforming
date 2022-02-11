@@ -48,7 +48,7 @@ def n_lastest_scatter_ylog(y1, y2, N, labels, title,
 
 
 def mean_reward(y1, y2, y3, y4, labels, title,
-                x1=None, x2=None, x3=None, x4=None, db=False):
+                x1=None, x2=None, x3=None, x4=None, db=False, save=False):
     if x1 is None:
         x1 = np.arange(len(y1[0, :]))
     if x2 is None:
@@ -70,7 +70,8 @@ def mean_reward(y1, y2, y3, y4, labels, title,
     plt.ylabel("Mean Reward")
     if db is not True:
         plt.yscale('log')
-    plt.savefig(f"{title}.pdf")
+    if save:
+        plt.savefig(f"{title}.pdf")
     plt.show()
 
 
@@ -123,8 +124,10 @@ def positions(pos_log, pos_bs, r_lim):
     ax.plot(pos_bs[0, :], pos_bs[1, :], 'X', label="Transmitter")
 
     for m in range(1, len(pos_log)):
-        ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
-
+        if len(pos_log[m]) == 1:
+            ax.plot(pos_log[m][0][0, :], pos_log[m][0][1, :], label=f"{m}")
+        else:
+            ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
     ax.set_xlim([-r_lim*3, r_lim*3])
     ax.set_ylim([-r_lim, r_lim*3])
 

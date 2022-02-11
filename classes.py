@@ -297,41 +297,58 @@ class Track():
 
 # %% Environment Class
 class Environment():
-    def __init__(self, W, F, Nt, Nr,
+    def __init__(self, W, F, Nt, Nr, Nbs,
                  r_r, r_t, fc, P_t):
         self.AoA = 0
         self.AoD = 0
         self.Beta = 0
+
+        # Codebooks
         self.W = W
         self.F = F
+
+        # Number of antennas
         self.Nt = Nt
         self.Nr = Nr
+
+        # Number of basestations
+        self.Nbs = Nbs
+
+        # Antenna Posistions
         self.r_t = r_t
         self.r_r = r_r
+
+        # Wavelength
         self.lambda_ = 3e8 / fc
+
+        # Transmitted power
         self.P_t = P_t
 
     def _get_reward(self, stepnr, action):
-        # Calculate steering vectors for transmitter and receiver
-        alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[stepnr, :],
-                                              r=self.r_r, lambda_=self.lambda_)
-        alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[stepnr, :],
-                                              r=self.r_t, lambda_=self.lambda_)
 
-        # Calculate channel matrix H
-        H = np.zeros((self.Nr, self.Nt), dtype=np.complex128)
-        for i in range(len(self.Beta[stepnr, :])):
-            H += self.Beta[stepnr, i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
-        H = H * np.sqrt(self.Nr * self.Nt)
+        # Empty Reward Matrix
+        R = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
 
-        # Calculate the reward
-        R = np.zeros([len(self.F[:, 0]), len(self.W[:, 0])])
-        for p in range(len(self.F[:, 0])):
-            for q in range(len(self.W[:, 0])):
-                R[p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
-                                         @ H @ self.F[p, :]) ** 2
+        # Calculate the reward pairs for each base station
+        for b in range(self.Nbs):
+            # Calculate steering vectors for transmitter and receiver
+            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[b, stepnr, :],
+                                                  r=self.r_r, lambda_=self.lambda_)
+            alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[b, stepnr, :],
+                                                  r=self.r_t, lambda_=self.lambda_)
+            # Calculate channel matrix H
+            H = np.zeros((self.Nr, self.Nt), dtype=np.complex128)
+            for i in range(len(self.Beta[b, stepnr, :])):
+                H += self.Beta[b, stepnr, i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
+            H = H * np.sqrt(self.Nr * self.Nt)
 
-        return np.max(R[:, action]), np.max(R), np.min(np.max(R, axis=0)), np.mean(np.max(R, axis=0))
+            # Calculate the reward
+            for p in range(len(self.F[:, 0])):  # p - transmitter
+                for q in range(len(self.W[:, 0])):  # q - receiver
+                    R[b, p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
+                                                @ H @ self.F[p, :]) ** 2
+
+        return np.max(R[:, :, action]), np.max(R), np.min(np.max(R, axis=1)), np.mean(np.max(R, axis=1))
 
     def take_action(self, stepnr, action):
         reward, max_reward, min_reward, mean_reward = self._get_reward(stepnr, action)

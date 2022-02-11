@@ -15,14 +15,16 @@ import helpers
 import plots
 
 # %% Global Parameters
-RUN = True
+RUN = False
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
+
+# LOCATION & DIST does not work probably in the multi cell case!!!!!
 DIST = False  # Include the dist in the state
 LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "small_multi"  # After the "data_" or "data_pos_"
+FILENAME = "medium_multi"  # After the "data_" or "data_pos_"
 CASE = "car_urban"  # "pedestrian" or "car"
 
 # %% main
@@ -39,13 +41,16 @@ if __name__ == "__main__":
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # Number of steps in a episode
-    N = 100
+    N = 1000
 
     # Sample Period [s]
     sample_period = 0.01
 
     # Number of episodes
     M = 4
+
+    # Number of base stations
+    Nbs = 4
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
@@ -56,10 +61,10 @@ if __name__ == "__main__":
     angle_res = 8
 
     # Chunk size, number of samples taken out.
-    chunksize = 300
+    chunksize = 800
 
     # Number of episodes per chunk
-    Episodes = 2
+    Episodes = 20
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
@@ -80,10 +85,19 @@ if __name__ == "__main__":
     # ----------- Create the data -----------
     t_start = time()
     # Load or create the data
-    channel_par, pos_log, pos_bs = helpers.get_data(RUN, ENGINE, case,
-                                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                                    [fc, N, M, r_lim, sample_period, scenarios, debug_print])
+    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
+                                            f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
+                                            [fc, N, M, r_lim, sample_period, scenarios, debug_print])
     print(f"Took: {time() - t_start}", flush=True)
+
+    # First entry are the BS coordinates
+    if len(pos_log[0]) == 1:
+        pos_bs = pos_log[0][0]
+    else:
+        pos_bs = pos_log[0]
+
+    # Removes the BS from the pos_log
+    pos_log = pos_log[1:]
 
     # Re-affirm that "M" matches data
     M = len(pos_log)
@@ -126,7 +140,7 @@ if __name__ == "__main__":
 
     # ----------- Prepare the simulation - RL -----------
     # Create the Environment
-    Env = classes.Environment(W, F, Nt, Nr,
+    Env = classes.Environment(W, F, Nt, Nr, Nbs,
                               r_r, r_t, fc, P_t)
 
     # Create action space
@@ -193,9 +207,9 @@ if __name__ == "__main__":
         path_idx = np.random.randint(0, M)
 
         # Update the enviroment data
-        Env.update_data(AoA_Local[path_idx][data_idx:data_idx + chunksize],
-                        AoD_Global[path_idx][0][data_idx:data_idx + chunksize],
-                        coeff[path_idx][0][data_idx:data_idx + chunksize])
+        Env.update_data(AoA_Local[path_idx][:, data_idx:data_idx + chunksize],
+                        AoD_Global[path_idx][0][:, data_idx:data_idx + chunksize],
+                        coeff[path_idx][0][:, data_idx:data_idx + chunksize])
 
         # Initiate the action
         action = np.random.choice(action_space)
@@ -283,7 +297,7 @@ if __name__ == "__main__":
                       ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
                       db=True)
 
-    plots.positions(pos_log, r_lim)
+    plots.positions(pos_log, pos_bs, r_lim)
 
     # X-db misallignment probability
     x_db = 3

@@ -182,7 +182,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         try:
             print("Loading data")
             pos_log = scio.loadmat("Data_sets/" + pos_log_name)
-            pos_log = pos_log["pos_log"]
+            pos_log = pos_log["pos_log"].T
 
         except IOError:
             RUN = True
@@ -276,4 +276,4 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         else:
             raise Exception("ENGINE name is incorrect")
 
-    return tmp, pos_log, pos_bs
+    return tmp, pos_log
