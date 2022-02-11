@@ -262,7 +262,7 @@ class Track():
             pos[0:2, t] = self.update_pos(pos[0:2, t - 1], v[t - 1], phi[t - 1])
 
             # Checks if the positions is inside the search radius of minimum one of the base stations
-            if np.sum(np.linalg.norm(pos[0:2, t] - self.pos_bs.T, axis=1) < self.radius_limit) > 0:
+            if np.sum(np.linalg.norm(pos[0:2, t] - self.pos_bs.T, axis=1) < self.radius_limit) == 0:
                 # Restarts the run
                 print(f'number of tries: {i}')
                 print(f'How far we got: {t}')

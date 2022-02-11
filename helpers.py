@@ -201,6 +201,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
 
         # Create the class
         track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim)
+        pos_bs = track.pos_bs
 
         pos_log_done = False
         while pos_log_done is False:
@@ -209,7 +210,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             for m in range(M):
                 pos_log.append(track.run(N))
 
-            plots.positions(pos_log, r_lim)
+            plots.positions(pos_log, pos_bs, r_lim)
 
             user_input = input("Does the created track(s) look fine (yes/no/stop)")
             if user_input.lower() == "yes":
@@ -275,4 +276,4 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         else:
             raise Exception("ENGINE name is incorrect")
 
-    return tmp, pos_log
+    return tmp, pos_log, pos_bs

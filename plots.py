@@ -110,19 +110,24 @@ def directivity(W, N, title):
     plt.show()
 
 
-def positions(pos_log, r_lim):
+def positions(pos_log, pos_bs, r_lim):
     fig, ax = plt.subplots()
     ax.set_title("Random Walk")
     ax.set_ylabel("Distance from transmitter [m]")
     ax.set_xlabel("Distance from transmitter [m]")
-    ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
+
+    # Plot bases tations
+    for i in range(4):
+        ax.add_patch(plt.Circle((pos_bs[0, i],  pos_bs[0, i]), r_lim, color='r', alpha=0.1))
+
+    ax.plot(pos_bs[0, :], pos_bs[0, :], 'X', label="Transmitter")
 
     for m in range(len(pos_log)):
         ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
 
-    ax.set_xlim([-r_lim*2, r_lim*2])
-    ax.set_ylim([-r_lim, r_lim*2])
-    ax.plot(0, 0,'X', label="Transmitter")
+    ax.set_xlim([-r_lim*3, r_lim*3])
+    ax.set_ylim([-r_lim, r_lim*3])
+
     if len(pos_log) < 10:
         plt.legend()
 

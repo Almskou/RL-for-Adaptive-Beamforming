@@ -37,7 +37,7 @@ if __name__ == "__main__":
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # Number of steps in a episode
-    N = 30000
+    N = 10000
 
     # Sample Period [s]
     sample_period = 0.01
@@ -78,9 +78,9 @@ if __name__ == "__main__":
     # ----------- Create the data -----------
     t_start = time()
     # Load or create the data
-    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
-                                            f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                            [fc, N, M, r_lim, sample_period, scenarios])
+    channel_par, pos_log, pos_bs = helpers.get_data(RUN, ENGINE, case,
+                                                    f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
+                                                    [fc, N, M, r_lim, sample_period, scenarios])
     print(f"Took: {time() - t_start}", flush=True)
 
     # Re-affirm that "M" matches data
