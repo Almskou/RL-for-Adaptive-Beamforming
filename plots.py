@@ -118,11 +118,11 @@ def positions(pos_log, pos_bs, r_lim):
 
     # Plot bases tations
     for i in range(4):
-        ax.add_patch(plt.Circle((pos_bs[0, i],  pos_bs[0, i]), r_lim, color='r', alpha=0.1))
+        ax.add_patch(plt.Circle((pos_bs[0, i],  pos_bs[1, i]), r_lim, color='r', alpha=0.1))
 
-    ax.plot(pos_bs[0, :], pos_bs[0, :], 'X', label="Transmitter")
+    ax.plot(pos_bs[0, :], pos_bs[1, :], 'X', label="Transmitter")
 
-    for m in range(len(pos_log)):
+    for m in range(1, len(pos_log)):
         ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
 
     ax.set_xlim([-r_lim*3, r_lim*3])

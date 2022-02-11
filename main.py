@@ -15,18 +15,20 @@ import helpers
 import plots
 
 # %% Global Parameters
-RUN = False
+RUN = True
 ENGINE = "MATLAB"  # "octave" OR "MATLAB"
 METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
 DIST = False  # Include the dist in the state
 LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
+FILENAME = "small_multi"  # After the "data_" or "data_pos_"
 CASE = "car_urban"  # "pedestrian" or "car"
 
 # %% main
 if __name__ == "__main__":
+    # Should it print debug msg.
+    debug_print = False
 
     # Load Scenario configuration
     with open(f'Cases/{CASE}.json', 'r') as fp:
@@ -37,13 +39,13 @@ if __name__ == "__main__":
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # Number of steps in a episode
-    N = 10000
+    N = 100
 
     # Sample Period [s]
     sample_period = 0.01
 
     # Number of episodes
-    M = 1
+    M = 4
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
@@ -80,7 +82,7 @@ if __name__ == "__main__":
     # Load or create the data
     channel_par, pos_log, pos_bs = helpers.get_data(RUN, ENGINE, case,
                                                     f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                                    [fc, N, M, r_lim, sample_period, scenarios])
+                                                    [fc, N, M, r_lim, sample_period, scenarios, debug_print])
     print(f"Took: {time() - t_start}", flush=True)
 
     # Re-affirm that "M" matches data

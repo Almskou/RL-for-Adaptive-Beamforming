@@ -12,7 +12,7 @@ import helpers
 
 # %% Track
 class Track():
-    def __init__(self, case, delta_t, r_lim):
+    def __init__(self, case, delta_t, r_lim, debug_print=False):
         self.delta_t = delta_t
         self.env = case["environment"]
         self.vpref = case["vpref"]
@@ -40,6 +40,9 @@ class Track():
         self.curve_slow = 0
 
         self.radius_limit = r_lim
+
+        # Debug msg
+        self.debug_print = debug_print
 
         # Base Stations Coordinates
         self.pos_bs = self.get_bs_pos()
@@ -205,11 +208,21 @@ class Track():
         if self.env.lower() == "urban":
             c_idx = np.random.randint(0, 6)
 
+            # Length to the points of the hexagon
+            hex_point = self.radius_limit
+
+            # Length to the top of the hexagon
+            hex_top = np.sqrt((hex_point**2) - (hex_point/2)**2)
+
+            # Can spawn around the 4 BS and in the middle of the BS.
             if c_idx < 4:
                 pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2) + self.pos_bs[:, c_idx]
-
+            elif c_idx == 5:
+                pos = (np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) +
+                       np.array([self.radius_limit / 2, hex_top]))
             else:
-                pos = np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) + np.array([-100, 173])
+                pos = (np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) +
+                       np.array([-self.radius_limit / 2, hex_top]))
 
         elif self.env.lower() == "highway":
             # Choose a start position on the edge based on a random chosen angle
@@ -264,8 +277,9 @@ class Track():
             # Checks if the positions is inside the search radius of minimum one of the base stations
             if np.sum(np.linalg.norm(pos[0:2, t] - self.pos_bs.T, axis=1) < self.radius_limit) == 0:
                 # Restarts the run
-                print(f'number of tries: {i}')
-                print(f'How far we got: {t}')
+                if self.debug_print:
+                    print(f'number of tries: {i}')
+                    print(f'How far we got: {t}')
 
                 t = 1
                 i += 1
