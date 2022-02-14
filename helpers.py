@@ -210,7 +210,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             for m in range(M):
                 pos_log.append(track.run(N))
 
-            plots.positions(pos_log, pos_bs, r_lim)
+            plots.positions(pos_log[1:], pos_bs, r_lim)
 
             user_input = input("Does the created track(s) look fine (yes/no/stop)")
             if user_input.lower() == "yes":
