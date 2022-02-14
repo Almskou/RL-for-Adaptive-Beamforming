@@ -123,7 +123,7 @@ def positions(pos_log, pos_bs, r_lim):
 
     ax.plot(pos_bs[0, :], pos_bs[1, :], 'X', label="Transmitter")
 
-    for m in range(1, len(pos_log)):
+    for m in range(0, len(pos_log)):
         if len(pos_log[m]) == 1:
             ax.plot(pos_log[m][0][0, :], pos_log[m][0][1, :], label=f"{m}")
         else:

@@ -24,7 +24,7 @@ ORI = False  # Include the orientiation in the state
 # LOCATION & DIST does not work probably in the multi cell case!!!!!
 DIST = False  # Include the dist in the state
 LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "medium_multi"  # After the "data_" or "data_pos_"
+FILENAME = "small_multi"  # After the "data_" or "data_pos_"
 CASE = "car_urban"  # "pedestrian" or "car"
 
 # %% main
@@ -41,13 +41,13 @@ if __name__ == "__main__":
     scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
 
     # Number of steps in a episode
-    N = 1000
+    N = 100
 
     # Sample Period [s]
     sample_period = 0.01
 
     # Number of episodes
-    M = 4
+    M = 1
 
     # Number of base stations
     Nbs = 4
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     angle_res = 8
 
     # Chunk size, number of samples taken out.
-    chunksize = 800
+    chunksize = 100
 
     # Number of episodes per chunk
     Episodes = 20

@@ -51,7 +51,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
             c = get_channels( b );                          % Generate channel coefficients
             c = merge( c, [], 0 );                          % Combine output channels
             c_coeff = [];
-            for i = 1:sp
+            for i = 1:length(pos_bs)
                 c(i).individual_delays = 0;                        % Remove per-antenna delays
                 c_coeff = cat(3, c_coeff, squeeze(c(i).coeff(1,1,:,:))');
             end
