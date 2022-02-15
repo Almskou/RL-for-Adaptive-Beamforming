@@ -1,28 +1,34 @@
 
 function done = get_data(fc, pos_log, name, ENGINE, scenarios)
-    rng shuffle
+    if ENGINE == "octave"
+        mkdir 'Data_sets\tmp';
+    else
+        rng shuffle;
+        mkdir("Data_sets\tmp");
+    end
     
-    load("Data_sets/"+pos_log);
+    load(strcat("Data_sets/", pos_log));
     pos_bs = cell2mat(pos_log(1));
+    pos_bs = pos_bs(:, 1:2);
     pos_log = pos_log(2:end);
+    
+    sb = size(pos_bs);
      
     l = qd_layout;                                          % Create new QuaDRIGa layout
     l.simpar.center_frequency = fc;                         % Set center frequency to 2 GHz
     l.simpar.use_absolute_delays = 1;                       % Enables true LOS delay
     l.simpar.show_progress_bars = 1;                        % Disable progress bars
     
-    l.no_tx = length(pos_bs);
-    for i = 1:length(pos_bs)
+    l.no_tx = sb(2);
+    for i = 1:sb(2)
         l.tx_position(:, i) = [pos_bs(1, i), pos_bs(2, i), 10]';                            % Set BS posittions
     end
-     
+
     l.rx_track = qd_track();
     
     sp = length(pos_log);  
     sc = size(scenarios);
-    
-    mkdir("Data_sets\tmp")
-    
+
     chunksize = 20000;
     for episode = 1:sp
         pos_log_mat = cell2mat(pos_log(episode));       % pos_log is currently given as a cell and therefor needs to be converted
@@ -42,16 +48,12 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
             l.rx_track.calc_orientation();
     
             l.rx_track.no_segments = l.rx_track.no_snapshots;       % Use spatial consisteny for mobility
-    
-            b = l.init_builder;                                     % Initializes channel builder
-    
-    %             b.gen_parameters(0);                            % Clears LSF SSF and SOS parameters
-            b.gen_parameters(5);                            % Generates all missing parameters
-        
-            c = get_channels( b );                          % Generate channel coefficients
+                          
+            [c, b] = l.get_channels();                      % Generate channel coefficients
             c = merge( c, [], 0 );                          % Combine output channels
             c_coeff = [];
-            for i = 1:length(pos_bs)
+
+            for i = 1:sb(2)
                 c(i).individual_delays = 0;                        % Remove per-antenna delays
                 c_coeff = cat(3, c_coeff, squeeze(c(i).coeff(1,1,:,:))');
             end
@@ -65,10 +67,10 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
             output{1} = b_AoA;
             output{2} = b_AoD;
             output{3} = c_coeff;
-            output{4} = l.rx_track.orientation();
+            output{4} = l.rx_track.orientation;
         
             if ENGINE == "octave"
-                save("-7", "Data_sets/tmp/"+name+"_"+string(episode)+"_"+string(chunk), 'output');
+                save("-7", strcat("Data_sets/tmp/",name,"_",mat2str(episode),"_",mat2str(chunk)), 'output');
             else
                 save("Data_sets/tmp/"+name+"_"+string(episode)+"_"+string(chunk), 'output');
             end
@@ -88,7 +90,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
         Coeff = [];
         Ori = [];
         for chunk = 1:ceil(pos_index(2)/chunksize)
-            load("Data_sets/tmp/"+name+"_"+string(episode)+"_"+string(chunk));
+            load(strcat("Data_sets/tmp/",name,"_",mat2str(episode),"_",mat2str(chunk)));
             AoA = [AoA, output{1}];
             AoD = [AoD, output{2}];
             Coeff = [Coeff, output{3}];
@@ -107,7 +109,7 @@ function done = get_data(fc, pos_log, name, ENGINE, scenarios)
     output{4} = Ori_cell;
     
     if ENGINE == "octave"
-        save("-7", "Data_sets/" + name, 'output');
+        save("-7", strcat("Data_sets/",name,".mat"), 'output');
     else
         save("Data_sets/" + name, 'output');
     end
