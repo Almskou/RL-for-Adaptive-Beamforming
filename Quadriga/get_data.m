@@ -1,15 +1,14 @@
 
 function done = get_data(fc, pos_log, name, ENGINE, scenarios)
     if ENGINE == "octave"
-        mkdir 'Data_sets\tmp';
+        mkdir 'Data_sets/tmp';
     else
         rng shuffle;
-        mkdir("Data_sets\tmp");
+        mkdir("Data_sets/tmp");
     end
     
     load(strcat("Data_sets/", pos_log));
     pos_bs = cell2mat(pos_log(1));
-    pos_bs = pos_bs(:, 1:2);
     pos_log = pos_log(2:end);
     
     sb = size(pos_bs);
