@@ -41,8 +41,8 @@ LOCATION = False  # Include location in polar coordinates in the state
 
 # %% main
 if __name__ == "__main__":
-    # debug: [plot, print]
-    debug = [False, False]
+    # debug: [plot, print, savefig]
+    debug = [False, False, True]
 
     # Parse arguments
     args = parser()
@@ -326,23 +326,26 @@ if __name__ == "__main__":
 
     plots.mean_reward(R_max_log_db, R_mean_log_db, R_min_log_db, R_log_db,
                       ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
-                      db=True)
+                      db=True, show=debug[0], save=debug[2])
 
-    plots.positions(pos_log, pos_bs, r_lim)
+    plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
     # X-db misallignment probability
     x_db = 3
     ACC_xdb = helpers.misalignment_prob(np.mean(R_log_db, axis=0),
-                                        np.mean(R_max_log_db, axis=0), x_db)
+                                        np.mean(R_max_log_db, axis=0), x_db,
+                                        show=debug[0], save=debug[2])
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
 
     NN = 1000
     ACC_xdb_NL = helpers.misalignment_prob(np.mean(R_log_db[:, -NN:], axis=0),
-                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db)
+                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db,
+                                           show=debug[0], save=debug[2])
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
 
     ACC_xdb_NF = helpers.misalignment_prob(np.mean(R_log_db[:, 0:NN], axis=0),
-                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db)
+                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db,
+                                           show=debug[0], save=debug[2])
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
 
     print("Done")
