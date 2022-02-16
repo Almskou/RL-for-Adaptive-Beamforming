@@ -162,7 +162,7 @@ def noisy_ori(ori_vector):
     return new_orientation
 
 
-def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
+def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.
     Parameters are either loaded from earlier simulations,
@@ -240,15 +240,24 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
 
             # Run the scenario to get the simulated channel parameters
-            if octave.get_data(fc, pos_log_name, data_name, ENGINE):
-                try:
-                    tmp = scio.loadmat("Data_sets/" + data_name)
-                    tmp = tmp["output"]
-                except FileNotFoundError:
-                    raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+            if multi_user:
+                if octave.get_data_multi_user(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
             else:
-                raise Exception("Something went wrong")
-
+                if octave.get_data_multi_env(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
         elif ENGINE == "MATLAB":
             try:
                 import matlab.engine
@@ -262,16 +271,24 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
 
             # Add Quadriga folder to path
             eng.addpath(eng.genpath(f"{os.getcwd()}/Quadriga"))
-            if eng.get_data(fc, pos_log_name, data_name, ENGINE):
-                try:
-                    tmp = scio.loadmat("Data_sets/" + data_name)
-                    tmp = tmp["output"]
-
-                except FileNotFoundError:
-                    raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
-
+            if multi_user:
+                if eng.get_data_multi_user(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
             else:
-                raise Exception("Something went wrong")
+                if eng.get_data_multi_env(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
 
             eng.quit()
 

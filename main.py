@@ -73,6 +73,9 @@ if __name__ == "__main__":
     # Number of episodes
     M = settings["sim_par"]["M_episodes"]
 
+    # Multi user
+    multi_user = settings["multi_user"]
+
     # Number of base stations
     Nbs = 4
 
@@ -116,7 +119,7 @@ if __name__ == "__main__":
     # ----------- Create the data -----------
     t_start = time()
     # Load or create the data
-    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
+    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case, multi_user,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                             [fc, N, M, r_lim, sample_period, scenarios, debug])
     print(f"Took: {time() - t_start}", flush=True)

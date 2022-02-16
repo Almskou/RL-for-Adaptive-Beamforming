@@ -1,7 +1,8 @@
 {
-	"engine":          	"octave",
+	"engine":          	"MATLAB",
 	"case":			  	"car_urban",
-	"filename":			"default_test_case",
+	"filename":			"default_test_case_user",
+	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
 						"N_steps": 			10000,
