@@ -6,6 +6,7 @@
 # %% Imports
 import json
 from time import time
+import argparse
 
 import numpy as np
 from tqdm import tqdm
@@ -14,40 +15,63 @@ import classes
 import helpers
 import plots
 
-# %% Global Parameters
+
+# %% Function
+def parser():
+    description = """Adaptive Beamforming using Reinforcement Learning"""
+    parser = argparse.ArgumentParser(description=description)
+
+    help_str = """Name of the .json file which contains your test parameters.
+                Default is the 'default.json' test parameters'"""
+    parser.add_argument('--test_par', type=str,
+                        default="default", help=help_str)
+
+    return parser.parse_args()
+
+
+# %% Global Parameters - Should either be removed or/and contained in the .json file
 RUN = False
-ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
 ADJ = True
 ORI = False  # Include the orientiation in the state
 
 # LOCATION & DIST does not work probably in the multi cell case!!!!!
 DIST = False  # Include the dist in the state
 LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "small_multi"  # After the "data_" or "data_pos_"
-CASE = "car_urban"  # "pedestrian" or "car"
+
 
 # %% main
 if __name__ == "__main__":
-    # Should it print debug msg.
-    debug_print = False
+    # debug: [plot, print]
+    debug = [False, False]
 
-    # Load Scenario configuration
-    with open(f'Cases/{CASE}.json', 'r') as fp:
-        case = json.load(fp)
+    # Parse arguments
+    args = parser()
+
+    # Load test_parameters configuration
+    with open(f'Test_parameters/{args.test_par}.json', 'r') as fp:
+        settings = json.load(fp)
 
     # ----------- Channel Simulation Parameters -----------
+    # Name of the data file afte "data_" and "data_pos_"
+    FILENAME = settings["filename"]
+
+    # Name of the chosen case "pedestrian", "car_urban" or "car_highway"
+    CASE = settings["case"]
+
+    # which engine should be be used "octave" OR "MATLAB"
+    ENGINE = settings["engine"]
+
     # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
+    scenarios = settings["sim_par"]["scenarios"]
 
     # Number of steps in a episode
-    N = 100
+    N = settings["sim_par"]["N_steps"]
 
     # Sample Period [s]
-    sample_period = 0.01
+    sample_period = settings["sim_par"]["sample_period"]
 
     # Number of episodes
-    M = 1
+    M = settings["sim_par"]["M_episodes"]
 
     # Number of base stations
     Nbs = 4
@@ -61,15 +85,22 @@ if __name__ == "__main__":
     angle_res = 8
 
     # Chunk size, number of samples taken out.
-    chunksize = 100
+    chunksize = settings["test_par"]["chunk_size"]
 
     # Number of episodes per chunk
-    Episodes = 20
+    Episodes = settings["test_par"]["episodes"]
+
+    # Which method RL should us: "simple", "SARSA" OR "Q-LEARNING"
+    METHOD = settings["RL_par"]["method"]
+
+    # ----------- Extracting variables from case -----------
+    # Load Scenario configuration
+    with open(f'Cases/{CASE}.json', 'r') as fp:
+        case = json.load(fp)
 
     # Radius for communication range [m]
     r_lim = case["rlim"]
 
-    # ----------- Extracting variables from case -----------
     # Number of antennae
     Nt = case["transmitter"]["antennea"]  # Transmitter
     Nr = case["receiver"]["antennea"]  # Receiver
@@ -87,7 +118,7 @@ if __name__ == "__main__":
     # Load or create the data
     channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                            [fc, N, M, r_lim, sample_period, scenarios, debug_print])
+                                            [fc, N, M, r_lim, sample_period, scenarios, debug])
     print(f"Took: {time() - t_start}", flush=True)
 
     # First entry are the BS coordinates

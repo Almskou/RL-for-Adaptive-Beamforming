@@ -1,0 +1,18 @@
+{
+	"engine":          	"octave",
+	"case":			  	"car_urban",
+	"filename":			"test",
+	"sim_par":			{
+                    	"scenarios":       "3GPP_38.901_UMi_LOS",
+						"N_steps": 			100,
+						"sample_period": 	0.01,
+						"M_episodes":		4
+						},
+	"RL_par":			{
+						"method":			"SARSA"
+						},
+    "test_par":         {
+                        "chunk_size":       100,
+                        "episodes":         20
+                        }
+}

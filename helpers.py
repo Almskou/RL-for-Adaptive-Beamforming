@@ -175,7 +175,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
     :param para: List of simulation settings/parameters used in the simulations
     :return:
     """
-    [fc, N, M, r_lim, sample_period, scenarios, debug_print] = para
+    [fc, N, M, r_lim, sample_period, scenarios, debug] = para
 
     # Load the data
     if not RUN:
@@ -200,7 +200,7 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         print("Creating track")
 
         # Create the class
-        track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim, debug_print=debug_print)
+        track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim, debug_print=debug[1])
         pos_bs = track.pos_bs
 
         pos_log_done = False
@@ -210,13 +210,15 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             for m in range(M):
                 pos_log.append(track.run(N))
 
-            plots.positions(pos_log[1:], pos_bs, r_lim)
-
-            user_input = input("Does the created track(s) look fine (yes/no/stop)")
-            if user_input.lower() == "yes":
+            if debug[0]:
+                plots.positions(pos_log[1:], pos_bs, r_lim)
+                user_input = input("Does the created track(s) look fine (yes/no/stop)")
+                if user_input.lower() == "yes":
+                    pos_log_done = True
+                if user_input.lower() == "stop":
+                    sys.exit("Program stopped by user")
+            else:
                 pos_log_done = True
-            if user_input.lower() == "stop":
-                sys.exit("Program stopped by user")
 
         print('track done')
         # Save the data
