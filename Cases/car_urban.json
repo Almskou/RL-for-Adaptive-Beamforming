@@ -1,7 +1,6 @@
 {
     "case":             "Car_Urban",
     "environment":      "Urban",
-    "rlim":             200,
     "fc":               28e9,
     "receiver":         {
                         "antennea": 4,

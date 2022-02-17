@@ -175,7 +175,7 @@ def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
     :param para: List of simulation settings/parameters used in the simulations
     :return:
     """
-    [fc, N, M, r_lim, sample_period, scenarios, debug] = para
+    [fc, N, M, r_lim, intersite, sample_period, scenarios, debug] = para
 
     # Load the data
     if not RUN:
@@ -200,7 +200,8 @@ def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
         print("Creating track")
 
         # Create the class
-        track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim, debug_print=debug[1])
+        track = classes.Track(case=case, delta_t=sample_period, intersite=intersite,
+                              r_lim=r_lim, debug_print=debug[1])
         pos_bs = track.pos_bs
 
         pos_log_done = False

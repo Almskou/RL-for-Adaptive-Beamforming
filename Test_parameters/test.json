@@ -2,11 +2,14 @@
 	"engine":          	"octave",
 	"case":			  	"car_urban",
 	"filename":			"test",
+	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
 						"N_steps": 			100,
 						"sample_period": 	0.01,
-						"M_episodes":		4
+						"M_episodes":		4,
+						"rlim":            200,
+						"intersite":        200
 						},
 	"RL_par":			{
 						"method":			"SARSA"

@@ -7,7 +7,9 @@
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
 						"N_steps": 			10000,
 						"sample_period": 	0.01,
-						"M_episodes":		4
+						"M_episodes":		4,
+						"rlim":            200,
+						"intersite":        200
 						},
 	"RL_par":			{
 						"method":			"SARSA"

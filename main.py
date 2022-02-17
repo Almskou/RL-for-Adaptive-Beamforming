@@ -42,7 +42,7 @@ LOCATION = False  # Include location in polar coordinates in the state
 # %% main
 if __name__ == "__main__":
     # debug: [plot, print, savefig]
-    debug = [False, False, True]
+    debug = [True, False, True]
 
     # Parse arguments
     args = parser()
@@ -79,6 +79,12 @@ if __name__ == "__main__":
     # Number of base stations
     Nbs = 4
 
+    # Radius for communication range [m]
+    r_lim = settings["sim_par"]["rlim"]
+
+    # Intersite distance between base stations [m]
+    intersite = settings["sim_par"]["intersite"]
+
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
     n_actions = 3
@@ -101,9 +107,6 @@ if __name__ == "__main__":
     with open(f'Cases/{CASE}.json', 'r') as fp:
         case = json.load(fp)
 
-    # Radius for communication range [m]
-    r_lim = case["rlim"]
-
     # Number of antennae
     Nt = case["transmitter"]["antennea"]  # Transmitter
     Nr = case["receiver"]["antennea"]  # Receiver
@@ -121,7 +124,7 @@ if __name__ == "__main__":
     # Load or create the data
     channel_par, pos_log = helpers.get_data(RUN, ENGINE, case, multi_user,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                            [fc, N, M, r_lim, sample_period, scenarios, debug])
+                                            [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
     print(f"Took: {time() - t_start}", flush=True)
 
     # First entry are the BS coordinates

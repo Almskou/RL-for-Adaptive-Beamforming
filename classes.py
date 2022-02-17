@@ -12,7 +12,7 @@ import helpers
 
 # %% Track
 class Track():
-    def __init__(self, case, delta_t, r_lim, debug_print=False):
+    def __init__(self, case, delta_t, r_lim, intersite, debug_print=False):
         self.delta_t = delta_t
         self.env = case["environment"]
         self.vpref = case["vpref"]
@@ -45,26 +45,24 @@ class Track():
         self.debug_print = debug_print
 
         # Base Stations Coordinates
+        self.intersite_bs = intersite
         self.pos_bs = self.get_bs_pos()
 
-    def get_bs_pos(self, olap=1):
-        # Length to the points of the hexagon
-        hex_point = self.radius_limit*olap
-
-        # Length to the top of the hexagon
-        hex_top = np.sqrt((hex_point**2) - (hex_point/2)**2)
+    def get_bs_pos(self):
+        # Length b and d on the x-axis
+        hex_bd = np.sqrt((self.intersite_bs**2) - (self.intersite_bs/2)**2)
 
         # a
         a = np.array([0, 0])
 
         # b
-        b = np.array([a[0] - hex_point*1.5, hex_top])
+        b = np.array([a[0] - hex_bd, self.intersite_bs/2])
 
         # d
-        d = np.array([a[0] + hex_point*1.5, hex_top])
+        d = np.array([a[0] + hex_bd, self.intersite_bs/2])
 
         # c
-        c = np.array([a[0], 2*hex_top])
+        c = np.array([a[0], self.intersite_bs])
 
         return np.array([a, b, c, d]).T
 

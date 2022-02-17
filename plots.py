@@ -144,8 +144,8 @@ def positions(pos_log, pos_bs, r_lim, show=False, save=True):
             ax.plot(pos_log[m][0][0, :], pos_log[m][0][1, :], label=f"{m}")
         else:
             ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
-    ax.set_xlim([-r_lim*3, r_lim*3])
-    ax.set_ylim([-r_lim, r_lim*3])
+    ax.set_xlim([np.min(pos_bs[0, :]) - r_lim, np.max(pos_bs[0, :]) + r_lim])
+    ax.set_ylim([np.min(pos_bs[1, :]) - r_lim, np.max(pos_bs[1, :]) + r_lim])
 
     if len(pos_log) < 10:
         plt.legend()
