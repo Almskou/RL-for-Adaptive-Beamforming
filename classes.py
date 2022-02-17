@@ -204,23 +204,14 @@ class Track():
 
         # Position
         if self.env.lower() == "urban":
-            c_idx = np.random.randint(0, 6)
-
-            # Length to the points of the hexagon
-            hex_point = self.radius_limit
-
-            # Length to the top of the hexagon
-            hex_top = np.sqrt((hex_point**2) - (hex_point/2)**2)
+            c_idx = np.random.randint(0, 5)
 
             # Can spawn around the 4 BS and in the middle of the BS.
             if c_idx < 4:
                 pos = np.random.uniform(-self.radius_limit / 2, self.radius_limit / 2, size=2) + self.pos_bs[:, c_idx]
-            elif c_idx == 5:
-                pos = (np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) +
-                       np.array([self.radius_limit / 2, hex_top]))
             else:
                 pos = (np.random.uniform(-self.radius_limit*0.75, self.radius_limit*0.75, size=2) +
-                       np.array([-self.radius_limit / 2, hex_top]))
+                       np.array([0, self.intersite_bs/2]))
 
         elif self.env.lower() == "highway":
             # Choose a start position on the edge based on a random chosen angle
