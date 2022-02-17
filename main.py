@@ -42,7 +42,7 @@ LOCATION = False  # Include location in polar coordinates in the state
 # %% main
 if __name__ == "__main__":
     # debug: [plot, print, savefig]
-    debug = [True, False, True]
+    debug = [False, False, True]
 
     # Parse arguments
     args = parser()
@@ -120,12 +120,17 @@ if __name__ == "__main__":
     P_t = case["P_t"]  # Transmission power
 
     # ----------- Create the data -----------
+    # Take time on how long it takes to run the simulation / load data in
     t_start = time()
     # Load or create the data
     channel_par, pos_log = helpers.get_data(RUN, ENGINE, case, multi_user,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                             [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
-    print(f"Took: {time() - t_start}", flush=True)
+
+    print(f"Channel parameters generation took: {time() - t_start}.3f seconds", flush=True)
+
+    # Take time on how long it take to the run the RL part
+    t_start = time()
 
     # First entry are the BS coordinates
     if len(pos_log[0]) == 1:
@@ -140,7 +145,6 @@ if __name__ == "__main__":
     M = len(pos_log)
 
     # ----------- Extract data from Quadriga simulation -----------
-    print("Extracting data", flush=True)
     AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
     AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
     coeff = channel_par[2][0]  # Channel Coefficients
@@ -151,7 +155,6 @@ if __name__ == "__main__":
         Orientation = helpers.noisy_ori(Orientation)
 
     # ----------- Prepare the simulation - Channel -----------
-    print("Starts calculating", flush=True)
     # Make ULA antenna positions - Transmitter
     r_r = np.zeros((2, Nr))
     r_r[0, :] = np.linspace(0, (Nr - 1) * lambda_ / 2, Nr)
@@ -318,8 +321,9 @@ if __name__ == "__main__":
             R_min_log[episode, n] = R_min
             R_mean_log[episode, n] = R_mean
 
+    print(f"RL Sim. took: {time() - t_start}.3f seconds", flush=True)
+
     # %% PLOT
-    print("Starts plotting")
 
     # Get the Logs in power decibel
     R_log_db = 10 * np.log10(R_log)
@@ -339,19 +343,14 @@ if __name__ == "__main__":
     # X-db misallignment probability
     x_db = 3
     ACC_xdb = helpers.misalignment_prob(np.mean(R_log_db, axis=0),
-                                        np.mean(R_max_log_db, axis=0), x_db,
-                                        show=debug[0], save=debug[2])
+                                        np.mean(R_max_log_db, axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
 
     NN = 1000
     ACC_xdb_NL = helpers.misalignment_prob(np.mean(R_log_db[:, -NN:], axis=0),
-                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db,
-                                           show=debug[0], save=debug[2])
+                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
 
     ACC_xdb_NF = helpers.misalignment_prob(np.mean(R_log_db[:, 0:NN], axis=0),
-                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db,
-                                           show=debug[0], save=debug[2])
+                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db)
     print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
-
-    print("Done")

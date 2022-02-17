@@ -67,6 +67,7 @@ function done = get_data_multi_user(fc, pos_log, name, ENGINE, scenarios)
         tmp_b_AoD = cat(3, b(:).AoD);
         b_AoA = permute(tmp_b_AoA(N*(i-1)+1:N*i, :, :), [3, 1, 2]);
         b_AoD = permute(tmp_b_AoD(N*(i-1)+1:N*i, :, :), [3, 1, 2]);
+        c_coeff = permute(c_coeff, [3, 1, 2]);
     
         output = cell(4,1);
         output{1} = b_AoA;
@@ -75,7 +76,7 @@ function done = get_data_multi_user(fc, pos_log, name, ENGINE, scenarios)
         output{4} = l.rx_track(1, i).orientation;
     
         if ENGINE == "octave"
-            save("-7", strcat("Data_sets/tmp/",name,"_",mat2str(i)), 'output');
+            save("-7", strcat("Data_sets/tmp/",name,"_",mat2str(i),".mat"), 'output');
         else
             save("Data_sets/tmp/"+name+"_"+string(i), 'output');
         end

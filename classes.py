@@ -49,7 +49,7 @@ class Track():
         self.pos_bs = self.get_bs_pos()
 
     def get_bs_pos(self):
-        # Length b and d on the x-axis
+        # Length to b and d on the x-axis
         hex_bd = np.sqrt((self.intersite_bs**2) - (self.intersite_bs/2)**2)
 
         # a

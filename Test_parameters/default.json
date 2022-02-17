@@ -1,21 +1,21 @@
 {
 	"engine":          	"MATLAB",
 	"case":			  	"car_urban",
-	"filename":			"default_test_case_user",
+	"filename":			"default_test_case_multi_user",
 	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
 						"N_steps": 			10000,
 						"sample_period": 	0.01,
 						"M_episodes":		4,
-						"rlim":            200,
+						"rlim":             200,
 						"intersite":        200
 						},
 	"RL_par":			{
 						"method":			"SARSA"
 						},
     "test_par":         {
-                        "chunk_size":       5000,
+                        "chunk_size":       100,
                         "episodes":         20
                         }
 }

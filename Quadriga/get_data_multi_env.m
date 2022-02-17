@@ -61,7 +61,7 @@ function done = get_data_multi_env(fc, pos_log, name, ENGINE, scenarios)
         output{4} = l.rx_track.orientation;
     
         if ENGINE == "octave"
-            save("-7", strcat("Data_sets/tmp/",name,"_",mat2str(episode)), 'output');
+            save("-7", strcat("Data_sets/tmp/",name,"_",mat2str(episode),".mat"), 'output');
         else
             save("Data_sets/tmp/"+name+"_"+string(episode), 'output');
         end
