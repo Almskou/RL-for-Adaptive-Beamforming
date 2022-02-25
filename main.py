@@ -13,13 +13,14 @@ from collections import namedtuple
 
 import json
 import argparse
-from time import time
+import time
 
 import helpers
 from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
 
 # Initialize tensorboard object
-name = f'DQN_logs_{time()}'
+local_time = time.strftime('%Y-%m-%d_%H_%M', time.localtime(time.time()))
+name = f'DQN_logs_{local_time}'
 summary_writer = tf.summary.create_file_writer(logdir=f'logs/{name}/')
 
 # global parameters
@@ -51,19 +52,6 @@ def parser():
 
 # %% ---------- Main ----------
 if __name__ == "__main__":
-
-    # Initialize the parameters
-    batch_size = 64
-    gamma = 0.99
-    eps_start = 1
-    eps_end = 0.000
-    eps_decay = 0.001
-    target_update = 25
-    memory_size = 100000
-    lr = 0.01
-    # epochs = 1000
-    hidden_units = [200, 200]
-
     # debug: [plot, print, savefig]
     debug = [False, False, True]
 
@@ -109,12 +97,29 @@ if __name__ == "__main__":
     intersite = settings["sim_par"]["intersite"]
 
     # ----------- Reinforcement Learning Parameters -----------
-    # State parameters
-    n_actions = 3
-    n_ori = 3
 
-    dist_res = 8
-    angle_res = 8
+    # Batch size - number of memories used
+    batch_size = 64
+
+    # Number of steps saved in the memory
+    memory_size = 100000
+
+    # How often the target policy should be updated. Every 'x' step
+    target_update = 25
+
+    # How many dense hidden layers and their size. [200, 100] - two layers of size 200 and 100
+    hidden_units = [200, 200]
+
+    # A factor given to the optimising algorithm
+    lr = 0.01
+
+    # Forgetting factor
+    gamma = 0.99
+    
+    # Exploring probablity 
+    eps_start = 1  # Start prob.
+    eps_end = 0.005  # End prob.
+    eps_decay = 0.001  # how much it decays with until it hits the end pr. step.
 
     # Chunk size, number of samples taken out.
     chunksize = settings["test_par"]["chunk_size"]
@@ -144,16 +149,17 @@ if __name__ == "__main__":
 
     # ----------- Create the data -----------
     # Take time on how long it takes to run the simulation / load data in
-    t_start = time()
+    t_start = time.time()
+
     # Load or create the data
     channel_par, pos_log = helpers.get_data(RUN, ENGINE, case, multi_user,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                             [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
 
-    print(f"Channel parameters generation took: {(time() - t_start):.3f} seconds", flush=True)
+    print(f"Channel parameters generation took: {(time.time() - t_start):.3f} seconds", flush=True)
 
     # Take time on how long it take to the run the RL part
-    t_start = time()
+    t_start = time.time()
 
     # First entry are the BS coordinates
     if len(pos_log[0]) == 1:
