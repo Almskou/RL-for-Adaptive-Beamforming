@@ -48,7 +48,7 @@ def parser():
     help_str = """Name of the .json file which contains your test parameters.
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
-                        default="default", help=help_str)
+                        default="test_env", help=help_str)
 
     return parser.parse_args()
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     target_update = 25
     memory_size = 100000
     lr = 0.01
-    epochs = 1000
+    # epochs = 1000
     hidden_units = [200, 200]
 
     # debug: [plot, print, savefig]
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     chunksize = settings["test_par"]["chunk_size"]
 
     # Number of episodes per chunk
-    Episodes = settings["test_par"]["episodes"]
+    epochs = settings["test_par"]["episodes"]
 
     # Which method RL should us: "simple", "SARSA" OR "Q-LEARNING"
     METHOD = settings["RL_par"]["method"]
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
                                             [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
 
-    print(f"Channel parameters generation took: {time() - t_start}.3f seconds", flush=True)
+    print(f"Channel parameters generation took: {(time() - t_start):.3f} seconds", flush=True)
 
     # Take time on how long it take to the run the RL part
     t_start = time()
@@ -217,15 +217,15 @@ if __name__ == "__main__":
 
     # Initialize Class variables
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = DQN_Agent(strategy, env.action_space.n)
+    agent = DQN_Agent(strategy, env.action_space_n)
     memory = ReplayMemory(memory_size)
 
     # Experience tuple variable to store the experience in a defined format
     Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
 
     # Initialize the policy and target network
-    policy_net = Model(len(env.observation_space.sample()), hidden_units, env.action_space.n)
-    target_net = Model(len(env.observation_space.sample()), hidden_units, env.action_space.n)
+    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
+    target_net = Model(len(env.state), hidden_units, env.action_space_n)
 
     # Copy weights of policy network to target network
     copy_weights(policy_net, target_net)
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
             action, rate, flag = agent.select_action(state, policy_net)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done = env.step(action)
             ep_rewards += reward
 
             # Store the experience in Replay memory
@@ -276,7 +276,7 @@ if __name__ == "__main__":
                 # Calculate Loss function and gradient values for gradient descent
                 with tf.GradientTape() as tape:
                     q_s_a = tf.math.reduce_sum(policy_net(np.atleast_2d(states).astype('float32'))
-                                               * tf.one_hot(actions, env.action_space.n), axis=1)
+                                               * tf.one_hot(actions, env.action_space_n), axis=1)
                     loss = tf.math.reduce_mean(tf.square(q_s_a_target - q_s_a))
 
                 # Update the policy network weights using ADAM

@@ -171,7 +171,7 @@ class Environment():
 
         return self.state
 
-    def _start_update(self, action):
+    def _state_update(self, action):
 
         # Insert new action in the front of the array
         state_tmp = np.insert(self.state, 0, action)
@@ -205,7 +205,7 @@ class Environment():
         self.stepnr = 0
 
         # Get number of steps in the episode
-        self.nstep = np.size(AoA)  # TODO: need to be checked
+        self.nstep = np.shape(AoA)[1]
 
         # Save updated variables
         self.AoA = AoA
