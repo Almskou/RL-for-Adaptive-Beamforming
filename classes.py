@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-@author: Dennis Sand, Nicolai Almskou,
-         Peter Fisker & Victor Nissen
+@author: Nicolai Almskou & Victor Nissen
 """
-# %% Imports
-from collections import defaultdict
 import numpy as np
+import math
+import random
+import tensorflow as tf
+import tensorflow.keras.layers as kl
 
 import helpers
 
 
-# %% Track
 class Track():
     def __init__(self, case, delta_t, r_lim, intersite, debug_print=False):
         self.delta_t = delta_t
@@ -284,9 +284,94 @@ class Track():
         return pos
 
 
-# %% Environment Class
+class Model(tf.keras.Model):
+    """
+    Subclassing a multi-layered NN using Keras from Tensorflow
+    """
+
+    def __init__(self, num_states, hidden_units, num_actions):
+        super(Model, self).__init__()  # Used to run the init method of the parent class
+        self.input_layer = kl.InputLayer(input_shape=(num_states,))
+        self.hidden_layers = []
+
+        for hidden_unit in hidden_units:
+            self.hidden_layers.append(kl.Dense(hidden_unit, activation='tanh'))  # Left kernel initializer
+
+        self.output_layer = kl.Dense(num_actions, activation='linear')
+
+    @tf.function
+    def call(self, inputs, **kwargs):
+        x = self.input_layer(inputs)
+        for layer in self.hidden_layers:
+            x = layer(x)
+        output = self.output_layer(x)
+        return output
+
+
+class ReplayMemory():
+    """
+    Used to store the experience genrated by the agent over time
+    """
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.memory = []
+        self.push_count = 0
+
+    def push(self, experience):
+        if len(self.memory) < self.capacity:
+            self.memory.append(experience)
+        else:
+            self.memory[self.push_count % self.capacity] = experience
+        self.push_count += 1
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def can_provide_sample(self, batch_size):
+        return len(self.memory) >= batch_size
+
+
+class EpsilonGreedyStrategy():
+    """
+    Decaying Epsilon-greedy strategy
+    """
+
+    def __init__(self, start, end, decay):
+        self.start = start
+        self.end = end
+        self.decay = decay
+
+    def get_exploration_rate(self, current_step):
+        return self.end + (self.start - self.end) * math.exp(-1*current_step*self.decay)
+
+
+class DQN_Agent():
+    """
+    Used to take actions by using the Model and given strategy.
+    """
+
+    def __init__(self, strategy, num_actions):
+        self.current_step = 0
+        self.strategy = strategy
+        self.num_actions = num_actions
+
+    def select_action(self, state, policy_net):
+        rate = self.strategy.get_exploration_rate(self.current_step)
+        self.current_step += 1
+
+        if rate > random.random():
+            return random.randrange(self.num_actions), rate, True
+        else:
+            return np.argmax(policy_net(np.atleast_2d(np.atleast_2d(state).astype('float32')))), rate, False
+
+
 class Environment():
-    def __init__(self, W, F, Nt, Nr, Nbs,
+    """
+    Environment created from the QuaDRiga simulation
+    """
+
+    def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
                  r_r, r_t, fc, P_t):
         self.AoA = 0
         self.AoD = 0
@@ -303,6 +388,9 @@ class Environment():
         # Number of basestations
         self.Nbs = Nbs
 
+        # Action space
+        self.action_space_n = Nbr
+
         # Antenna Posistions
         self.r_t = r_t
         self.r_r = r_r
@@ -313,7 +401,14 @@ class Environment():
         # Transmitted power
         self.P_t = P_t
 
-    def _get_reward(self, stepnr, action):
+        # Number of steps / step count
+        self.nstep = 0
+        self.stepnr = 0
+
+        # What state we are in
+        self.state = np.random.choice(range(self.action_space_n), size=3)
+
+    def _get_reward(self, action):
 
         # Empty Reward Matrix
         R = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
@@ -321,14 +416,14 @@ class Environment():
         # Calculate the reward pairs for each base station
         for b in range(self.Nbs):
             # Calculate steering vectors for transmitter and receiver
-            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[b, stepnr, :],
+            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[b, self.stepnr, :],
                                                   r=self.r_r, lambda_=self.lambda_)
-            alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[b, stepnr, :],
+            alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[b, self.stepnr, :],
                                                   r=self.r_t, lambda_=self.lambda_)
             # Calculate channel matrix H
             H = np.zeros((self.Nr, self.Nt), dtype=np.complex128)
-            for i in range(len(self.Beta[b, stepnr, :])):
-                H += self.Beta[b, stepnr, i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
+            for i in range(len(self.Beta[b, self.stepnr, :])):
+                H += self.Beta[b, self.stepnr, i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
             H = H * np.sqrt(self.Nr * self.Nt)
 
             # Calculate the reward
@@ -339,370 +434,53 @@ class Environment():
 
         return np.max(R[:, :, action]), np.max(R), np.min(np.max(R, axis=1)), np.mean(np.max(R, axis=1))
 
-    def take_action(self, stepnr, action):
-        reward, max_reward, min_reward, mean_reward = self._get_reward(stepnr, action)
+    def _start_state(self):
 
-        return reward, max_reward, min_reward, mean_reward
+        # Select a random start state
+        self.state = np.random.choice(range(self.action_space_n), size=3)
 
-    def update_data(self, AoA, AoD, Beta):
+        return self.state
+
+    def _state_update(self, action):
+
+        # Insert new action in the front of the array
+        state_tmp = np.insert(self.state, 0, action)
+
+        # Remove the last element so keep the same state dim.
+        self.state = np.delete(state_tmp, -1)
+
+        return self.state
+
+    def step(self, action):
+
+        # Get the reward
+        reward, _, _, _ = self._get_reward(action)
+
+        # Get the next_state
+        next_state = self._state_update(action)
+
+        # Update counter and see if episode if finished
+        self.stepnr += 1
+        if self.stepnr == self.nstep - 1:
+            done = True
+        else:
+            done = False
+
+        return next_state, reward, done
+
+        # return reward, max_reward, min_reward, mean_reward
+
+    def reset(self, AoA, AoD, Beta):
+        # Reset step counter
+        self.stepnr = 0
+
+        # Get number of steps in the episode
+        self.nstep = np.shape(AoA)[1]
+
+        # Save updated variables
         self.AoA = AoA
         self.AoD = AoD
         self.Beta = Beta
 
-
-# %% State Class
-class State:
-    def __init__(self, intial_state):
-        self.state = intial_state
-
-    def update_state(self, action, para=[None, None, None]):
-        dist, ori, angle = para
-        state_a = self.state[0][1:]
-        state_a.append(action)
-
-        if dist is not None:
-            state_d = [dist]
-        else:
-            state_d = ["N/A"]
-
-        if ori is not None:
-            state_o = self.state[2][1:]
-            state_o.append(ori)
-        else:
-            state_o = ["N/A"]
-
-        if angle is not None:
-            state_deg = [angle]
-        else:
-            state_deg = ["N/A"]
-
-        self.state = [state_a, state_d, state_o, state_deg]
-
-    def get_state(self, para=[None, None, None]):
-        dist, ori, angle = para
-        state_a = self.state[0]
-
-        if dist is not None:
-            state_d = self.state[1]
-        else:
-            state_d = ["N/A"]
-
-        if ori is not None:
-            state_o = self.state[2]
-        else:
-            state_o = ["N/A"]
-
-        if angle is not None:
-            state_deg = [angle]
-        else:
-            state_deg = ["N/A"]
-
-        state = tuple([tuple(state_a), tuple(state_d),
-                       tuple(state_o), tuple(state_deg)])
-
-        return state
-
-    def get_nextstate(self, action, para_next=[None, None, None]):
-        dist, ori, angle = para_next
-        next_state_a = self.state[0][1:]
-        next_state_a.append(action)
-
-        if dist is not None:
-            next_state_d = [dist]
-        else:
-            next_state_d = ["N/A"]
-
-        if ori is not None:
-            next_state_o = self.state[2][1:]
-            next_state_o.append(ori)
-        else:
-            next_state_o = ["N/A"]
-
-        if angle is not None:
-            next_state_deg = [angle]
-        else:
-            next_state_deg = ["N/A"]
-
-        next_state = tuple([tuple(next_state_a), tuple(next_state_d),
-                            tuple(next_state_o), tuple(next_state_deg)])
-        return next_state
-
-
-# %% Agent Class
-class Agent:
-    def __init__(self, action_space, alpha=["constant", 0.7], eps=0.1, gamma=0.7, c=200):
-        self.action_space = action_space  # Number of beam directions
-        self.alpha_start = alpha[1]
-        self.alpha_method = alpha[0]
-        self.alpha = defaultdict(self._initiate_dict(alpha[1]))
-        self.eps = eps
-        self.gamma = gamma
-        self.c = c
-        self.Q = defaultdict(self._initiate_dict(0.001))
-        self.accuracy = np.zeros(1)
-
-    def _initiate_dict(self, value1, value2=0):
-        """
-        Small function used when initiating the dicts.
-        For the alpha dict, value1 is alphas starting value.
-        Value2 should be set to 0 as it is used to log the number of times it has been used.
-
-        Parameters
-        ----------
-        value1 : FLOAT
-            First value in the array.
-        value2 : FLOAT, optional
-            Second value in the array. The default is 0.
-
-        Returns
-        -------
-        TYPE
-            An iterative type which defaultdict can use to set starting values.
-
-        """
-        return lambda: [value1, value2]
-
-    def _update_alpha(self, state, action):
-        """
-        Updates the alpha values if method "1/n" has been chosen
-
-        Parameters
-        ----------
-        state : ARRAY
-            Current position (x,y).
-        action : INT
-            Current action taken.
-
-        Returns
-        -------
-        None.
-
-        """
-        if self.alpha_method == "1/n":
-            if self.alpha[state, action][1] == 0:
-                self.alpha[state, action] = [self.alpha_start * (1 / 1),
-                                             1 + self.alpha[state, action][1]]
-            else:
-                self.alpha[state, action] = [self.alpha_start * (1 / self.alpha[state, action][1]),
-                                             1 + self.alpha[state, action][1]]
-
-    def greedy(self, state):
-        """
-        Calculate which action is expected to be the most optimum.
-
-        Parameters
-        ----------
-        state : ARRAY
-            Which position on the grid you are standing on (x,y).
-
-        Returns
-        -------
-        INT
-            The chosen action.
-
-        """
-        beam_dir = np.random.choice(self.action_space)
-        r_est = self.Q[state, beam_dir][0]
-
-        for action in self.action_space:
-            if self.Q[state, action][0] > r_est:
-                beam_dir = action
-                r_est = self.Q[state, action][0]
-
-        return beam_dir
-
-    def e_greedy(self, state):
-        """
-        Return a random action in the action space based on the epsilon value.
-        Else return the same value as the greedy function
-
-        Parameters
-        ----------
-        state : ARRAY
-            Which position on the grid you are standing on (x,y).
-
-        Returns
-        -------
-        INT
-            The chosen action.
-
-        """
-        if np.random.random() > self.eps:
-            return self.greedy(state)
-        else:
-            return np.random.choice(self.action_space)
-
-    def greedy_adj(self, state, action):
-        N = len(self.action_space)
-        actions = [self.action_space[(action - 1) % N],
-                   self.action_space[action % N],
-                   self.action_space[(action + 1) % N]]
-
-        beam_dir = np.random.choice(actions)
-        r_est = self.Q[state, beam_dir][0]
-
-        for action in actions:
-            if self.Q[state, action][0] > r_est:
-                beam_dir = action
-                r_est = self.Q[state, action][0]
-
-        return beam_dir
-
-    def e_greedy_adj(self, state, action):
-        if np.random.random() > self.eps:
-            return self.greedy_adj(state, action)
-        else:
-            N = len(self.action_space)
-            actions = [self.action_space[(action - 1) % N],
-                       self.action_space[action % N],
-                       self.action_space[(action + 1) % N]]
-            return np.random.choice(actions)
-
-    def UCB(self, state, t):
-        """
-        Uses the Upper Bound Confidence method as a policy. See eq. (2.10)
-        in the book:
-        Reinforcement Learning - An introduction.
-        Second edition by Richard S. Sutton and Andrew G. Barto
-
-        Parameters
-        ----------
-        state : ARRAY
-            Current position (x,y).
-        t : INT
-            Current time step.
-
-        Returns
-        -------
-        beam_dir : INT
-            Beam direction.
-
-        """
-        beam_dir = np.random.choice(self.action_space)
-        if self.Q[state, beam_dir][1] == 0:
-            r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / 1)
-        else:
-            r_est = self.Q[state, beam_dir][0] + self.c * np.sqrt(np.log(t) / self.Q[state, beam_dir][1])
-
-        for action in self.action_space:
-            if self.Q[state, action][1] == 0:
-                r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / 1)
-            else:
-                r_est_new = self.Q[state, action][0] + self.c * np.sqrt(np.log(t) / self.Q[state, action][1])
-            if r_est_new > r_est:
-                beam_dir = action
-                r_est = r_est_new
-
-        return beam_dir
-
-    def update(self, State, action, reward, para):
-        """
-        Update the Q table for the given state and action based on equation (2.5)
-        in the book:
-        Reinforcement Learning - An introduction.
-        Second edition by Richard S. Sutton and Andrew G. Barto
-
-        Parameters
-        ----------
-        state : ARRAY
-            Which position on the grid you are standing on (x,y).
-        action : INT
-            The action you are taking.
-        reward : MATRIX
-            The reward matrix.
-
-        Returns
-        -------
-        None.
-
-        """
-        state = State.get_state(para)
-
-        self.Q[state, action] = [(self.Q[state, action][0] +
-                                  self.alpha[state, action][0] * (reward - self.Q[state, action][0])),
-                                 self.Q[state, action][1] + 1]
-        self._update_alpha(state, action)
-
-    def update_sarsa(self, R, State, action, next_action, para_next, end=False):
-        """
-        Update the Q table for the given state and action based on equation (6.7)
-        in the book:
-        Reinforcement Learning - An introduction.
-        Second edition by Richard S. Sutton and Andrew G. Barto
-
-        Parameters
-        ----------
-        R : MATRIX
-            The reward matrix.
-        state : ARRAY
-            Which position on the grid you are standing on (x,y).
-        action : INT
-            The action you are taking.
-        next_action : INT
-            The next action you take.
-
-        Returns
-        -------
-        None.
-
-        """
-        if end is False:
-            next_state = State.get_nextstate(action, para_next)
-            state = State.get_state(para_next)
-            next_Q = self.Q[next_state, next_action][0]
-
-            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                     self.Q[state, action][1] + 1]
-            self._update_alpha(state, action)
-        else:
-            state = State.get_state(para_next)
-            next_Q = 0
-
-            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                     self.Q[state, action][1] + 1]
-            self._update_alpha(state, action)
-
-    def update_Q_learning(self, R, State, action, para_next, adj=False, end=False):
-        """
-        Update the Q table for the given state and action based on equation (6.8)
-        in the book:
-        Reinforcement Learning - An introduction.
-        Second edition by Richard S. Sutton and Andrew G. Barto
-
-        Parameters
-        ----------
-        R : MATRIX
-            The reward matrix.
-        state : ARRAY
-            Which position on the grid you are standing on (x,y).
-        action : INT
-            The action you are taking.
-
-        Returns
-        -------
-        None.
-
-        """
-        if end is False:
-            next_state = State.get_nextstate(action, para_next)
-            state = State.get_state(para_next)
-            if adj:
-                next_action = self.greedy_adj(next_state, action)
-            else:
-                next_action = self.greedy(next_state)
-            next_Q = self.Q[next_state, next_action][0]
-
-            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                     self.Q[state, action][1] + 1]
-            self._update_alpha(state, action)
-        else:
-            state = State.get_state(para_next)
-            next_Q = 0
-
-            self.Q[state, action] = [self.Q[state, action][0] + self.alpha[state, action][0] *
-                                     (R + self.gamma * next_Q - self.Q[state, action][0]),
-                                     self.Q[state, action][1] + 1]
-            self._update_alpha(state, action)
+        # Return the start state()
+        return self._start_state()
