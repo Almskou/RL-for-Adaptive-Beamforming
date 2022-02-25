@@ -14,6 +14,7 @@ from collections import namedtuple
 import json
 import argparse
 import time
+import sys
 
 import helpers
 from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
@@ -21,7 +22,10 @@ from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Envir
 # Initialize tensorboard object
 local_time = time.strftime('%Y-%m-%d_%H_%M', time.localtime(time.time()))
 name = f'DQN_logs_{local_time}'
-summary_writer = tf.summary.create_file_writer(logdir=f'logs/{name}/')
+summary_writer = tf.summary.create_file_writer(logdir=f'logs/{name}/main')
+summary_writer_sub_1 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_1')
+summary_writer_sub_2 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_2')
+summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3')
 
 # global parameters
 RUN = False
@@ -46,6 +50,9 @@ def parser():
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
                         default="test_env", help=help_str)
+
+    help_str = """Call if the reinforcement learning should part should be run"""    
+    parser.add_argument('--DQN', action='store_false', help=help_str)
 
     return parser.parse_args()
 
@@ -157,7 +164,10 @@ if __name__ == "__main__":
                                             [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
 
     print(f"Channel parameters generation took: {(time.time() - t_start):.3f} seconds", flush=True)
-
+    
+    if not args.DQN:
+        sys.exit("--DQN not called - stopping")
+    
     # Take time on how long it take to the run the RL part
     t_start = time.time()
 
@@ -236,6 +246,8 @@ if __name__ == "__main__":
 
     total_rewards = np.empty(epochs)
 
+    step = 1
+
     for epoch in range(epochs):
         # Choose data for the episode
         data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
@@ -244,15 +256,28 @@ if __name__ == "__main__":
         # Reset the environment with the new data
         state = env.reset(AoA_Local[path_idx][:, data_idx:data_idx + chunksize],
                           AoD_Global[path_idx][0][:, data_idx:data_idx + chunksize],
-                          coeff[path_idx][0][:, data_idx:data_idx + chunksize])
+                          coeff[path_idx][0][:, data_idx:data_idx + chunksize],
+                          pos_log[path_idx][0][:, data_idx:data_idx + chunksize])
         ep_rewards = 0
         losses = []
 
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
             action, rate, flag = agent.select_action(state, policy_net)
-            next_state, reward, done = env.step(action)
+            next_state, reward, done, max_reward, min_reward, mean_reward = env.step(action)
             ep_rewards += reward
+
+            # Log the reward
+            with summary_writer.as_default():
+                tf.summary.scalar(f'Step_reward', reward, step=step, description="Taken reward")
+            with summary_writer_sub_1.as_default():
+                tf.summary.scalar(f'Step_reward', max_reward, step=step, description="Max reward")
+            with summary_writer_sub_2.as_default():
+                tf.summary.scalar(f'Step_reward', min_reward, step=step, description="Mean reward")
+            with summary_writer_sub_3.as_default():
+                tf.summary.scalar(f'Step_reward', mean_reward, step=step, description="Min reward")     
+            step += 1
+                
 
             # Store the experience in Replay memory
             memory.push(Experience(state, action, next_state, reward, done))
@@ -307,6 +332,7 @@ if __name__ == "__main__":
             tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
             tf.summary.scalar('Losses', mean(losses), step=epoch)
 
-        if epoch % 1 == 0:
-            print(f"Episode: {epoch} Episode_Reward: {total_rewards[epoch]} Avg_Reward: {avg_rewards: 0.1f}" +
-                  f" Losses:{mean(losses): 0.1f} rate:{rate: 0.8f} flag:{flag}")
+        if debug[1]:
+            if epoch % 1 == 0:
+                print(f"Episode: {epoch} Episode_Reward: {total_rewards[epoch]} Avg_Reward: {avg_rewards: 0.1f}" +
+                      f" Losses:{mean(losses): 0.1f} rate:{rate: 0.8f} flag:{flag}")

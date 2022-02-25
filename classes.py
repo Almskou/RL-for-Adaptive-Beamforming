@@ -376,6 +376,7 @@ class Environment():
         self.AoA = 0
         self.AoD = 0
         self.Beta = 0
+        self.pos = 0
 
         # Codebooks
         self.W = W
@@ -406,7 +407,10 @@ class Environment():
         self.stepnr = 0
 
         # What state we are in
-        self.state = np.random.choice(range(self.action_space_n), size=3)
+        self.state = np.array([0.0, 0, 0, 0, 0])
+
+        # Number of earlier action in the state space
+        self.n_earlier_actions = 3
 
     def _get_reward(self, action):
 
@@ -432,12 +436,21 @@ class Environment():
                     R[b, p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
                                                 @ H @ self.F[p, :]) ** 2
 
+        # Normalise with respect to the distance
+        R = R * np.linalg.norm(self.pos[0:2, self.stepnr])**2
+
+        # Convert to power dB
+        R = 10*np.log10(R) + 40
+
         return np.max(R[:, :, action]), np.max(R), np.min(np.max(R, axis=1)), np.mean(np.max(R, axis=1))
 
     def _start_state(self):
 
         # Select a random start state
-        self.state = np.random.choice(range(self.action_space_n), size=3)
+        self.state = np.random.choice(range(self.action_space_n), size=self.n_earlier_actions)
+
+        # Add start postion to the start state
+        self.state = np.append(self.state, [self.pos[0, 0], self.pos[1, 0]])
 
         return self.state
 
@@ -446,31 +459,35 @@ class Environment():
         # Insert new action in the front of the array
         state_tmp = np.insert(self.state, 0, action)
 
-        # Remove the last element so keep the same state dim.
-        self.state = np.delete(state_tmp, -1)
+        # Remove the fourth element (The oldest action)
+        self.state = np.delete(state_tmp, self.n_earlier_actions)
+
+        # Update the position state to the newest value
+        self.state[3] = self.pos[0, self.stepnr]
+        self.state[4] = self.pos[1, self.stepnr]
 
         return self.state
 
     def step(self, action):
 
         # Get the reward
-        reward, _, _, _ = self._get_reward(action)
+        reward, max_r, min_r, mean_r = self._get_reward(action)
+
+        # Update counter
+        self.stepnr += 1
 
         # Get the next_state
         next_state = self._state_update(action)
 
-        # Update counter and see if episode if finished
-        self.stepnr += 1
+        # See if episode is finished
         if self.stepnr == self.nstep - 1:
             done = True
         else:
             done = False
 
-        return next_state, reward, done
+        return next_state, reward, done, max_r, min_r, mean_r
 
-        # return reward, max_reward, min_reward, mean_reward
-
-    def reset(self, AoA, AoD, Beta):
+    def reset(self, AoA, AoD, Beta, pos_log):
         # Reset step counter
         self.stepnr = 0
 
@@ -481,6 +498,7 @@ class Environment():
         self.AoA = AoA
         self.AoD = AoD
         self.Beta = Beta
+        self.pos = pos_log
 
         # Return the start state()
         return self._start_state()

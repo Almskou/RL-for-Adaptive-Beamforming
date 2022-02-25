@@ -1,13 +1,13 @@
 {
 	"engine":          	"octave",
 	"case":			  	"car_urban",
-	"filename":			"test_car_urban_env_10000_8",
-	"multi_user":       false,
+	"filename":			"test_car_urban_user_10000_8_NLOS",
+	"multi_user":       true,
 	"sim_par":			{
-                    	"scenarios":       "3GPP_38.901_UMi_LOS",
+                    	"scenarios":       "3GPP_38.901_UMi_NLOS",
 						"N_steps": 			10000,
 						"sample_period": 	0.01,
-						"M_episodes":		4,
+						"M_episodes":		8,
 						"rlim":             200,
 						"intersite":        200
 						},
