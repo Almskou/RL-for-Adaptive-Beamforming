@@ -162,7 +162,7 @@ def noisy_ori(ori_vector):
     return new_orientation
 
 
-def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
+def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
     """
     Generates parameters for the channel model.
     Parameters are either loaded from earlier simulations,
@@ -175,14 +175,14 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
     :param para: List of simulation settings/parameters used in the simulations
     :return:
     """
-    [fc, N, M, r_lim, sample_period, scenarios] = para
+    [fc, N, M, r_lim, intersite, sample_period, scenarios, debug] = para
 
     # Load the data
     if not RUN:
         try:
             print("Loading data")
             pos_log = scio.loadmat("Data_sets/" + pos_log_name)
-            pos_log = pos_log["pos_log"]
+            pos_log = pos_log["pos_log"].T
 
         except IOError:
             RUN = True
@@ -200,22 +200,26 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
         print("Creating track")
 
         # Create the class
-        track = classes.Track(case=case, delta_t=sample_period, r_lim=r_lim)
+        track = classes.Track(case=case, delta_t=sample_period, intersite=intersite,
+                              r_lim=r_lim, debug_print=debug[1])
+        pos_bs = track.pos_bs
 
         pos_log_done = False
         while pos_log_done is False:
             # Create the tracks
-            pos_log = []
+            pos_log = [pos_bs]
             for m in range(M):
                 pos_log.append(track.run(N))
 
-            plots.positions(pos_log, r_lim)
-
-            user_input = input("Does the created track(s) look fine (yes/no/stop)")
-            if user_input.lower() == "yes":
+            if debug[0]:
+                plots.positions(pos_log[1:], pos_bs, r_lim, show=True, save=False)
+                user_input = input("Does the created track(s) look fine (yes/no/stop)")
+                if user_input.lower() == "yes":
+                    pos_log_done = True
+                if user_input.lower() == "stop":
+                    sys.exit("Program stopped by user")
+            else:
                 pos_log_done = True
-            if user_input.lower() == "stop":
-                sys.exit("Program stopped by user")
 
         print('track done')
         # Save the data
@@ -237,15 +241,24 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
             octave.addpath(octave.genpath(f"{os.getcwd()}/Quadriga"))
 
             # Run the scenario to get the simulated channel parameters
-            if octave.get_data(fc, pos_log_name, data_name, ENGINE):
-                try:
-                    tmp = scio.loadmat("Data_sets/" + data_name)
-                    tmp = tmp["output"]
-                except FileNotFoundError:
-                    raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+            if multi_user:
+                if octave.get_data_multi_user(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
             else:
-                raise Exception("Something went wrong")
-
+                if octave.get_data_multi_env(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
         elif ENGINE == "MATLAB":
             try:
                 import matlab.engine
@@ -259,16 +272,24 @@ def get_data(RUN, ENGINE, case, pos_log_name, data_name, para):
 
             # Add Quadriga folder to path
             eng.addpath(eng.genpath(f"{os.getcwd()}/Quadriga"))
-            if eng.get_data(fc, pos_log_name, data_name, ENGINE):
-                try:
-                    tmp = scio.loadmat("Data_sets/" + data_name)
-                    tmp = tmp["output"]
-
-                except FileNotFoundError:
-                    raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
-
+            if multi_user:
+                if eng.get_data_multi_user(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
             else:
-                raise Exception("Something went wrong")
+                if eng.get_data_multi_env(fc, pos_log_name, data_name, ENGINE):
+                    try:
+                        tmp = scio.loadmat("Data_sets/" + data_name)
+                        tmp = tmp["output"]
+                    except FileNotFoundError:
+                        raise FileNotFoundError(f"Data file {data_name} not loaded correctly")
+                else:
+                    raise Exception("Something went wrong")
 
             eng.quit()
 

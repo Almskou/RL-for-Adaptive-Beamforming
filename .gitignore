@@ -1,3 +1,7 @@
 .idea/
 __pycache__/
 *.asv
+Data_sets/*.mat
+Data_sets/tmp/
+Plots/*.pdf
+logs/

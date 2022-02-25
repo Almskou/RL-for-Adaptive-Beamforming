@@ -13,7 +13,8 @@ import numpy as np
 
 
 def n_lastest_scatter(y1, y2, N, labels, title,
-                      x1=None, x2=None, marker=None):
+                      x1=None, x2=None, marker=None,
+                      show=False, save=True):
     if x1 is None:
         x1 = np.arange(N)
 
@@ -26,11 +27,16 @@ def n_lastest_scatter(y1, y2, N, labels, title,
     plt.scatter(x1, y1[-N:], label=labels[0], marker=marker)
     plt.scatter(x2, y2[-N:], label=labels[1], marker=marker)
     plt.legend()
-    plt.show()
+
+    if save:
+        plt.savefig(f"Plots/{title}.pdf")
+    if show:
+        plt.show()
 
 
 def n_lastest_scatter_ylog(y1, y2, N, labels, title,
-                           x1=None, x2=None, marker=None):
+                           x1=None, x2=None, marker=None,
+                           show=False, save=True):
     if x1 is None:
         x1 = np.arange(N)
 
@@ -44,11 +50,17 @@ def n_lastest_scatter_ylog(y1, y2, N, labels, title,
     plt.scatter(x2, y2[-N:], label=labels[1], marker=marker)
     plt.legend()
     plt.yscale('log')
-    plt.show()
+
+    if save:
+        plt.savefig(f"Plots/{title}.pdf")
+    if show:
+        plt.show()
 
 
 def mean_reward(y1, y2, y3, y4, labels, title,
-                x1=None, x2=None, x3=None, x4=None, db=False):
+                x1=None, x2=None, x3=None, x4=None, db=False,
+                show=False, save=True):
+
     if x1 is None:
         x1 = np.arange(len(y1[0, :]))
     if x2 is None:
@@ -70,11 +82,13 @@ def mean_reward(y1, y2, y3, y4, labels, title,
     plt.ylabel("Mean Reward")
     if db is not True:
         plt.yscale('log')
-    plt.savefig(f"{title}.pdf")
-    plt.show()
+    if save:
+        plt.savefig(f"Plots/{title}.pdf")
+    if show:
+        plt.show()
 
 
-def directivity(W, N, title):
+def directivity(W, N, title, show=False, save=True):
     """
     Plots a directivity plot for a codebook
     :param W: Codebook
@@ -107,32 +121,45 @@ def directivity(W, N, title):
 
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
               ncol=4)
-    plt.show()
+    if save:
+        plt.savefig(f"Plots/{title}.pdf")
+    if show:
+        plt.show()
 
 
-def positions(pos_log, r_lim):
+def positions(pos_log, pos_bs, r_lim, show=False, save=True):
     fig, ax = plt.subplots()
     ax.set_title("Random Walk")
     ax.set_ylabel("Distance from transmitter [m]")
     ax.set_xlabel("Distance from transmitter [m]")
-    ax.add_patch(plt.Circle((0, 0), r_lim, color='r', alpha=0.1))
 
-    for m in range(len(pos_log)):
-        ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
+    # Plot bases tations
+    for i in range(4):
+        ax.add_patch(plt.Circle((pos_bs[0, i],  pos_bs[1, i]), r_lim, color='r', alpha=0.1))
 
-    ax.set_xlim([-r_lim, r_lim])
-    ax.set_ylim([-r_lim, r_lim])
-    ax.plot(0, 0,'X', label="Transmitter")
+    ax.plot(pos_bs[0, :], pos_bs[1, :], 'X', label="Transmitter")
+
+    for m in range(0, len(pos_log)):
+        if len(pos_log[m]) == 1:
+            ax.plot(pos_log[m][0][0, :], pos_log[m][0][1, :], label=f"{m}")
+        else:
+            ax.plot(pos_log[m][0, :], pos_log[m][1, :], label=f"{m}")
+    ax.set_xlim([np.min(pos_bs[0, :]) - r_lim, np.max(pos_bs[0, :]) + r_lim])
+    ax.set_ylim([np.min(pos_bs[1, :]) - r_lim, np.max(pos_bs[1, :]) + r_lim])
+
     if len(pos_log) < 10:
         plt.legend()
 
     ax.set_aspect('equal', adjustable='box')
 
-    plt.show()
+    if save:
+        plt.savefig("Plots/Random_walk.pdf")
+    if show:
+        plt.show()
 
 
 def ori_lines(y1, y2, ori_discrete, labels, title, N1, N2,
-              x1=None, x2=None):
+              x1=None, x2=None, show=False, save=True):
 
     ori = ori_discrete[0][N1:N2]
     y1 = y1[:, N1:N2]
@@ -169,4 +196,8 @@ def ori_lines(y1, y2, ori_discrete, labels, title, N1, N2,
     plt.xlabel("Number of Steps")
     plt.ylabel("Mean Reward")
     plt.yscale('log')
-    plt.show()
+
+    if save:
+        plt.savefig(f"Plots/{title}.pdf")
+    if show:
+        plt.show()

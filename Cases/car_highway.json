@@ -1,7 +1,6 @@
 {
     "case":             "Car_Highway",
     "environment":      "Highway",
-    "rlim":             200,
     "fc":               28e9,
     "receiver":         {
                         "antennea": 4,

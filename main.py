@@ -1,49 +1,112 @@
 # -*- coding: utf-8 -*-
 """
-@author: Dennis Sand, Nicolai Almskou,
-         Peter Fisker & Victor Nissen
+@author: Nicolai Almskou & Victor Nissen
 """
-# %% Imports
+
+
+# %% ---------- Imports ----------
+import itertools
+import numpy as np
+import tensorflow as tf
+from statistics import mean
+from collections import namedtuple
+
 import json
+import argparse
 from time import time
 
-import numpy as np
-from tqdm import tqdm
-
-import classes
 import helpers
-import plots
+from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
 
-# %% Global Parameters
+# Initialize tensorboard object
+name = f'DQN_logs_{time()}'
+summary_writer = tf.summary.create_file_writer(logdir=f'logs/{name}/')
+
+# global parameters
 RUN = False
-ENGINE = "MATLAB"  # "octave" OR "MATLAB"
-METHOD = "SARSA"  # "simple", "SARSA" OR "Q-LEARNING"
-ADJ = True
-ORI = False  # Include the orientiation in the state
-DIST = False  # Include the dist in the state
-LOCATION = False  # Include location in polar coordinates in the state
-FILENAME = "test_case_car_8"  # After the "data_" or "data_pos_"
-CASE = "car_highway"  # "pedestrian" or "car"
 
-# %% main
+
+# %% ---------- Functions ----------
+def copy_weights(Copy_from, Copy_to):
+    """
+    Function to copy weights of a model to other
+    """
+    variables2 = Copy_from.trainable_variables
+    variables1 = Copy_to.trainable_variables
+    for v1, v2 in zip(variables1, variables2):
+        v1.assign(v2.numpy())
+
+
+def parser():
+    description = """Adaptive Beamforming using Reinforcement Learning"""
+    parser = argparse.ArgumentParser(description=description)
+
+    help_str = """Name of the .json file which contains your test parameters.
+                Default is the 'default.json' test parameters'"""
+    parser.add_argument('--test_par', type=str,
+                        default="test_env", help=help_str)
+
+    return parser.parse_args()
+
+
+# %% ---------- Main ----------
 if __name__ == "__main__":
 
-    # Load Scenario configuration
-    with open(f'Cases/{CASE}.json', 'r') as fp:
-        case = json.load(fp)
+    # Initialize the parameters
+    batch_size = 64
+    gamma = 0.99
+    eps_start = 1
+    eps_end = 0.000
+    eps_decay = 0.001
+    target_update = 25
+    memory_size = 100000
+    lr = 0.01
+    # epochs = 1000
+    hidden_units = [200, 200]
+
+    # debug: [plot, print, savefig]
+    debug = [False, False, True]
+
+    # Parse arguments
+    args = parser()
+
+    # Load test_parameters configuration
+    with open(f'Test_parameters/{args.test_par}.json', 'r') as fp:
+        settings = json.load(fp)
 
     # ----------- Channel Simulation Parameters -----------
+    # Name of the data file afte "data_" and "data_pos_"
+    FILENAME = settings["filename"]
+
+    # Name of the chosen case "pedestrian", "car_urban" or "car_highway"
+    CASE = settings["case"]
+
+    # which engine should be be used "octave" OR "MATLAB"
+    ENGINE = settings["engine"]
+
     # Possible scenarios for Quadriga simulations
-    scenarios = ['3GPP_38.901_UMi_LOS']  # '3GPP_38.901_UMi_NLOS'
+    scenarios = settings["sim_par"]["scenarios"]
 
     # Number of steps in a episode
-    N = 1300
+    N = settings["sim_par"]["N_steps"]
 
     # Sample Period [s]
-    sample_period = 0.01
+    sample_period = settings["sim_par"]["sample_period"]
 
     # Number of episodes
-    M = 2
+    M = settings["sim_par"]["M_episodes"]
+
+    # Multi user
+    multi_user = settings["multi_user"]
+
+    # Number of base stations
+    Nbs = 4
+
+    # Radius for communication range [m]
+    r_lim = settings["sim_par"]["rlim"]
+
+    # Intersite distance between base stations [m]
+    intersite = settings["sim_par"]["intersite"]
 
     # ----------- Reinforcement Learning Parameters -----------
     # State parameters
@@ -54,15 +117,19 @@ if __name__ == "__main__":
     angle_res = 8
 
     # Chunk size, number of samples taken out.
-    chunksize = 300
+    chunksize = settings["test_par"]["chunk_size"]
 
     # Number of episodes per chunk
-    Episodes = 2
+    epochs = settings["test_par"]["episodes"]
 
-    # Radius for communication range [m]
-    r_lim = case["rlim"]
+    # Which method RL should us: "simple", "SARSA" OR "Q-LEARNING"
+    METHOD = settings["RL_par"]["method"]
 
     # ----------- Extracting variables from case -----------
+    # Load Scenario configuration
+    with open(f'Cases/{CASE}.json', 'r') as fp:
+        case = json.load(fp)
+
     # Number of antennae
     Nt = case["transmitter"]["antennea"]  # Transmitter
     Nr = case["receiver"]["antennea"]  # Receiver
@@ -76,18 +143,31 @@ if __name__ == "__main__":
     P_t = case["P_t"]  # Transmission power
 
     # ----------- Create the data -----------
+    # Take time on how long it takes to run the simulation / load data in
     t_start = time()
     # Load or create the data
-    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case,
+    channel_par, pos_log = helpers.get_data(RUN, ENGINE, case, multi_user,
                                             f"data_pos_{FILENAME}.mat", f"data_{FILENAME}",
-                                            [fc, N, M, r_lim, sample_period, scenarios])
-    print(f"Took: {time() - t_start}", flush=True)
+                                            [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
+
+    print(f"Channel parameters generation took: {(time() - t_start):.3f} seconds", flush=True)
+
+    # Take time on how long it take to the run the RL part
+    t_start = time()
+
+    # First entry are the BS coordinates
+    if len(pos_log[0]) == 1:
+        pos_bs = pos_log[0][0]
+    else:
+        pos_bs = pos_log[0]
+
+    # Removes the BS from the pos_log
+    pos_log = pos_log[1:]
 
     # Re-affirm that "M" matches data
     M = len(pos_log)
 
     # ----------- Extract data from Quadriga simulation -----------
-    print("Extracting data", flush=True)
     AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
     AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
     coeff = channel_par[2][0]  # Channel Coefficients
@@ -98,7 +178,6 @@ if __name__ == "__main__":
         Orientation = helpers.noisy_ori(Orientation)
 
     # ----------- Prepare the simulation - Channel -----------
-    print("Starts calculating", flush=True)
     # Make ULA antenna positions - Transmitter
     r_r = np.zeros((2, Nr))
     r_r[0, :] = np.linspace(0, (Nr - 1) * lambda_ / 2, Nr)
@@ -122,180 +201,106 @@ if __name__ == "__main__":
     for m in range(M):
         AoA_Local.append(helpers.get_local_angle(AoA_Global[m][0], Orientation[m][0][2, :]))
 
-    # ----------- Prepare the simulation - RL -----------
-    # Create the Environment
-    Env = classes.Environment(W, F, Nt, Nr,
-                              r_r, r_t, fc, P_t)
+    # ----------- DQN -----------
+    # Initialize the environment
+    env = Environment(W, F, Nt, Nr, Nbs, Nbt, Nbr,
+                      r_r, r_t, fc, P_t)
 
-    # Create action space
-    action_space = np.arange(Nbr)
+    """
+    Notice that we are not using any function to make the states discrete here as DQN
+    can handle discrete state spaces.
+    """
 
-    # Create the discrete orientation if ORI is true
-    if ORI:
-        ori_discrete = np.zeros([M, N])
-        for m in range(M):
-            ori_discrete[m, :] = helpers.discrete_ori(Orientation[m][0][2, :], Nbr)
-    else:
-        ori_discrete = None
+    # Initialize Class variables
+    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
+    agent = DQN_Agent(strategy, env.action_space_n)
+    memory = ReplayMemory(memory_size)
 
-    if DIST or LOCATION:
-        dist_discrete = np.zeros([M, N])
-        for m in range(M):
-            dist_discrete[m, :] = helpers.discrete_dist(pos_log[m], dist_res, r_lim)
-    else:
-        dist_discrete = None
+    # Experience tuple variable to store the experience in a defined format
+    Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
 
-    if LOCATION:
-        angle_discrete = np.zeros([M, N])
-        for m in range(M):
-            angle_discrete[m, :] = helpers.discrete_angle(pos_log[m], angle_res)
-    else:
-        angle_discrete = None
+    # Initialize the policy and target network
+    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
+    target_net = Model(len(env.state), hidden_units, env.action_space_n)
 
-    # ----------- Starts the simulation -----------
-    action_log = np.zeros([Episodes, chunksize])
-    R_log = np.zeros([Episodes, chunksize])
-    R_max_log = np.zeros([Episodes, chunksize])
-    R_min_log = np.zeros([Episodes, chunksize])
-    R_mean_log = np.zeros([Episodes, chunksize])
+    # Copy weights of policy network to target network
+    copy_weights(policy_net, target_net)
 
-    for episode in tqdm(range(Episodes), desc="Episodes"):
-        # Create the Agent
-        Agent = classes.Agent(action_space, eps=0.1, alpha=["constant", 0.7])
+    optimizer = tf.optimizers.Adam(lr)
 
-        # Create the State
-        State_tmp = []
+    total_rewards = np.empty(epochs)
 
-        # Initate a random beam sequence
-        State_tmp.append(list(np.random.randint(0, Nbr, n_actions)))
-
-        if DIST or LOCATION:
-            State_tmp.append(list([dist_discrete[0]]))
-        else:
-            State_tmp.append(["N/A"])
-
-        if ORI:
-            State_tmp.append(list(np.random.randint(0, Nbr, n_ori)))
-        else:
-            State_tmp.append(["N/A"])
-
-        if LOCATION:
-            State_tmp.append(list([angle_discrete[0]]))
-        else:
-            State_tmp.append(["N/A"])
-
-        State = classes.State(State_tmp)
-
-        # Choose data
+    for epoch in range(epochs):
+        # Choose data for the episode
         data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
         path_idx = np.random.randint(0, M)
 
-        # Update the enviroment data
-        Env.update_data(AoA_Local[path_idx][data_idx:data_idx + chunksize],
-                        AoD_Global[path_idx][0][data_idx:data_idx + chunksize],
-                        coeff[path_idx][0][data_idx:data_idx + chunksize])
+        # Reset the environment with the new data
+        state = env.reset(AoA_Local[path_idx][:, data_idx:data_idx + chunksize],
+                          AoD_Global[path_idx][0][:, data_idx:data_idx + chunksize],
+                          coeff[path_idx][0][:, data_idx:data_idx + chunksize])
+        ep_rewards = 0
+        losses = []
 
-        # Initiate the action
-        action = np.random.choice(action_space)
+        for timestep in itertools.count():
+            # Take action and observe next_stae, reward and done signal
+            action, rate, flag = agent.select_action(state, policy_net)
+            next_state, reward, done = env.step(action)
+            ep_rewards += reward
 
-        end = False
-        # Run the episode
-        for n in range(chunksize):
-            if ORI:
-                ori = int(ori_discrete[path_idx, data_idx + n])
-                if n < chunksize - 1:
-                    next_ori = int(ori_discrete[path_idx, data_idx + n + 1])
+            # Store the experience in Replay memory
+            memory.push(Experience(state, action, next_state, reward, done))
+            state = next_state
+
+            if memory.can_provide_sample(batch_size):
+                # Sample a random batch of experience from memory
+                experiences = memory.sample(batch_size)
+                batch = Experience(*zip(*experiences))
+
+                # batch is a list of tuples, converting to numpy array here
+                states = np.asarray(batch[0])
+                actions = np.asarray(batch[1])
+                rewards = np.asarray(batch[3])
+                next_states = np.asarray(batch[2])
+                dones = np.asarray(batch[4])
+
+                # Calculate TD-target
+                q_s_a_prime = np.max(target_net(np.atleast_2d(next_states).astype('float32')), axis=1)
+                q_s_a_target = np.where(dones, rewards, rewards+gamma*q_s_a_prime)
+                q_s_a_target = tf.convert_to_tensor(q_s_a_target, dtype='float32')
+
+                # Calculate Loss function and gradient values for gradient descent
+                with tf.GradientTape() as tape:
+                    q_s_a = tf.math.reduce_sum(policy_net(np.atleast_2d(states).astype('float32'))
+                                               * tf.one_hot(actions, env.action_space_n), axis=1)
+                    loss = tf.math.reduce_mean(tf.square(q_s_a_target - q_s_a))
+
+                # Update the policy network weights using ADAM
+                variables = policy_net.trainable_variables
+                gradients = tape.gradient(loss, variables)
+                optimizer.apply_gradients(zip(gradients, variables))
+
+                losses.append(loss.numpy())
+
             else:
-                ori = None
-                next_ori = None
+                losses.append(0)
 
-            if DIST or LOCATION:
-                dist = dist_discrete[path_idx, data_idx + n]
-                if n < chunksize - 1:
-                    next_dist = dist_discrete[path_idx, data_idx + n + 1]
-            else:
-                dist = None
-                next_dist = None
+            # If it is time to update target network
+            if timestep % target_update == 0:
+                copy_weights(policy_net, target_net)
 
-            if LOCATION:
-                angle = angle_discrete[path_idx, data_idx + n]
-                if n < chunksize - 1:
-                    next_angle = angle_discrete[path_idx, data_idx + n + 1]
-            else:
-                angle = None
-                next_angle = None
+            if done:
+                break
 
-            if n == chunksize - 1:
-                end = True
+        total_rewards[epoch] = ep_rewards
+        avg_rewards = total_rewards[max(0, epoch - 100):(epoch + 1)].mean()  # Running average reward of 100 iterations
 
-            para = [dist, ori, angle]
-            para_action = [next_dist, ori, angle]
-            para_next = [next_dist, next_ori, next_angle]
+        # Good old book-keeping
+        with summary_writer.as_default():
+            tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
+            tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
+            tf.summary.scalar('Losses', mean(losses), step=epoch)
 
-            State.update_state(action, para=para)
-
-            if ADJ:
-                action = Agent.e_greedy_adj(State.get_state(para=para), action)
-            else:
-                action = Agent.e_greedy(State.get_state(para=para))
-
-            R, R_max, R_min, R_mean = Env.take_action(n, action)
-
-            if METHOD == "simple":
-                Agent.update(State, action, R, para=para)
-            elif METHOD == "SARSA":
-                if ADJ:
-                    next_action = Agent.e_greedy_adj(State.get_nextstate(action,
-                                                                         para_next=para_action), action)
-                else:
-                    next_action = Agent.e_greedy(State.get_nextstate(action,
-                                                                     para_next=para_action))
-                Agent.update_sarsa(R, State, action,
-                                   next_action,
-                                   para_next=para_next, end=end)
-            else:
-                Agent.update_Q_learning(R, State, action,
-                                        para_next=para_next,
-                                        adj=ADJ, end=end)
-                METHOD = "Q-LEARNING"
-
-            action_log[episode, n] = action
-            R_log[episode, n] = R
-            R_max_log[episode, n] = R_max
-            R_min_log[episode, n] = R_min
-            R_mean_log[episode, n] = R_mean
-
-    # %% PLOT
-    print("Starts plotting")
-
-    # Get the Logs in power decibel
-    R_log_db = 10 * np.log10(R_log)
-    R_max_log_db = 10 * np.log10(R_max_log)
-    R_min_log_db = 10 * np.log10(R_min_log)
-    R_mean_log_db = 10 * np.log10(R_mean_log)
-
-    # plots.mean_reward(R_max_log, R_mean_log, R_min_log, R_log,
-    #                   ["R_max", "R_mean", "R_min", "R"], "Mean Rewards")
-
-    plots.mean_reward(R_max_log_db, R_mean_log_db, R_min_log_db, R_log_db,
-                      ["R_max", "R_mean", "R_min", "R"], "Mean Rewards db",
-                      db=True)
-
-    plots.positions(pos_log, r_lim)
-
-    # X-db misallignment probability
-    x_db = 3
-    ACC_xdb = helpers.misalignment_prob(np.mean(R_log_db, axis=0),
-                                        np.mean(R_max_log_db, axis=0), x_db)
-    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb:0.3F} for full length")
-
-    NN = 1000
-    ACC_xdb_NL = helpers.misalignment_prob(np.mean(R_log_db[:, -NN:], axis=0),
-                                           np.mean(R_max_log_db[:, -NN:], axis=0), x_db)
-    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NL:0.3F} for the last {NN}")
-
-    ACC_xdb_NF = helpers.misalignment_prob(np.mean(R_log_db[:, 0:NN], axis=0),
-                                           np.mean(R_max_log_db[:, 0:NN], axis=0), x_db)
-    print(F"{x_db}-db Mis-alignment probability: {ACC_xdb_NF:0.3F} for the first {NN}")
-
-    print("Done")
+        if epoch % 1 == 0:
+            print(f"Episode: {epoch} Episode_Reward: {total_rewards[epoch]} Avg_Reward: {avg_rewards: 0.1f}" +
+                  f" Losses:{mean(losses): 0.1f} rate:{rate: 0.8f} flag:{flag}")
