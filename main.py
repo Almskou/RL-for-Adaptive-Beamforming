@@ -51,8 +51,8 @@ def parser():
     parser.add_argument('--test_par', type=str,
                         default="test_env", help=help_str)
 
-    help_str = """Call if the reinforcement learning should part should be run"""    
-    parser.add_argument('--DQN', action='store_false', help=help_str)
+    help_str = """Call if the reinforcement learning should part should be run"""
+    parser.add_argument('--DQN', action='store_true', help=help_str)
 
     return parser.parse_args()
 
@@ -122,8 +122,8 @@ if __name__ == "__main__":
 
     # Forgetting factor
     gamma = 0.99
-    
-    # Exploring probablity 
+
+    # Exploring probablity
     eps_start = 1  # Start prob.
     eps_end = 0.005  # End prob.
     eps_decay = 0.001  # how much it decays with until it hits the end pr. step.
@@ -164,10 +164,10 @@ if __name__ == "__main__":
                                             [fc, N, M, r_lim, intersite, sample_period, scenarios, debug])
 
     print(f"Channel parameters generation took: {(time.time() - t_start):.3f} seconds", flush=True)
-    
+
     if not args.DQN:
         sys.exit("--DQN not called - stopping")
-    
+
     # Take time on how long it take to the run the RL part
     t_start = time.time()
 
@@ -269,15 +269,14 @@ if __name__ == "__main__":
 
             # Log the reward
             with summary_writer.as_default():
-                tf.summary.scalar(f'Step_reward', reward, step=step, description="Taken reward")
+                tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
             with summary_writer_sub_1.as_default():
-                tf.summary.scalar(f'Step_reward', max_reward, step=step, description="Max reward")
+                tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
             with summary_writer_sub_2.as_default():
-                tf.summary.scalar(f'Step_reward', min_reward, step=step, description="Mean reward")
+                tf.summary.scalar('Step_reward', min_reward, step=step, description="Mean reward")
             with summary_writer_sub_3.as_default():
-                tf.summary.scalar(f'Step_reward', mean_reward, step=step, description="Min reward")     
+                tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
             step += 1
-                
 
             # Store the experience in Replay memory
             memory.push(Experience(state, action, next_state, reward, done))
