@@ -50,7 +50,7 @@ def parser():
     help_str = """Name of the .json file which contains your test parameters.
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
-                        default="test_user_LOS", help=help_str)
+                        default="default", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
     parser.add_argument('--DQN', action='store_true', help=help_str)
@@ -251,6 +251,9 @@ if __name__ == "__main__":
 
     step = 1
 
+    # Buffer for saving the x last y-db mis-alignment prob.
+    mis_prob_buffer = np.array([[], [], [], []])
+
     for epoch in range(epochs):
         # Choose data for the episode
         data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
@@ -270,15 +273,33 @@ if __name__ == "__main__":
             next_state, reward, done, max_reward, min_reward, mean_reward = env.step(action)
             ep_rewards += reward
 
+            # Calculate the miss alignment prob. and add to the buffer
+            mis_prob_buffer = np.insert(mis_prob_buffer, 0,
+                                        [reward >= max_reward - 3,
+                                         reward >= max_reward - 5,
+                                         reward >= max_reward - 7,
+                                         reward >= max_reward - 9], axis=1)
+
+            # Ensure that the buffer only contain the latest 1000 steps
+            if np.size(mis_prob_buffer, axis=1) > 1000:
+                mis_prob_buffer = np.delete(mis_prob_buffer, -1, axis=1)
+
+            mis_prob = np.mean(mis_prob_buffer, axis=1)
+
             # Log the reward
             with summary_writer.as_default():
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
+                tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
+                tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
             with summary_writer_sub_2.as_default():
                 tf.summary.scalar('Step_reward', min_reward, step=step, description="Mean reward")
+                tf.summary.scalar('Mis-alignment', mis_prob[2], step=step, description="7 dB")
             with summary_writer_sub_3.as_default():
                 tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
+                tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
+
             step += 1
 
             # Store the experience in Replay memory
