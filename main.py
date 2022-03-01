@@ -18,6 +18,7 @@ import sys
 
 import helpers
 from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
+import plots
 
 # Initialize tensorboard object
 local_time = time.strftime('%Y-%m-%d_%H_%M', time.localtime(time.time()))
@@ -49,7 +50,7 @@ def parser():
     help_str = """Name of the .json file which contains your test parameters.
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
-                        default="test_env", help=help_str)
+                        default="test_user_LOS", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
     parser.add_argument('--DQN', action='store_true', help=help_str)
@@ -165,9 +166,6 @@ if __name__ == "__main__":
 
     print(f"Channel parameters generation took: {(time.time() - t_start):.3f} seconds", flush=True)
 
-    if not args.DQN:
-        sys.exit("--DQN not called - stopping")
-
     # Take time on how long it take to the run the RL part
     t_start = time.time()
 
@@ -182,6 +180,11 @@ if __name__ == "__main__":
 
     # Re-affirm that "M" matches data
     M = len(pos_log)
+
+    plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
+
+    if not args.DQN:
+        sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
     AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
