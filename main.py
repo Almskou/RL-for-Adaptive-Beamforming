@@ -15,14 +15,23 @@ import json
 import argparse
 import time
 import sys
+import os
+import platform
 
 import helpers
 from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
 import plots
 
 # Initialize tensorboard object
+
+# Get hostname
+if platform.system() == "Windows":
+    hostname = platform.uname().node
+else:
+    hostname = os.uname()[1]   # doesnt work on windows
+
 local_time = time.strftime('%Y-%m-%d_%H_%M', time.localtime(time.time()))
-name = f'DQN_logs_{local_time}'
+name = f'DQN_logs_{local_time}_{hostname}'
 summary_writer = tf.summary.create_file_writer(logdir=f'logs/{name}/main')
 summary_writer_sub_1 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_1')
 summary_writer_sub_2 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_2')
