@@ -284,10 +284,10 @@ if __name__ == "__main__":
 
             # Calculate the miss alignment prob. and add to the buffer
             mis_prob_buffer = np.insert(mis_prob_buffer, 0,
-                                        [reward >= max_reward - 3,
-                                         reward >= max_reward - 5,
-                                         reward >= max_reward - 7,
-                                         reward >= max_reward - 9], axis=1)
+                                        [reward < max_reward - 3,
+                                         reward < max_reward - 5,
+                                         reward < max_reward - 7,
+                                         reward < max_reward - 9], axis=1)
 
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:
