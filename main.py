@@ -192,9 +192,6 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if not args.DQN:
-        sys.exit("--DQN not called - stopping")
-
     # ----------- Extract data from Quadriga simulation -----------
     AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
     AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
@@ -231,8 +228,27 @@ if __name__ == "__main__":
 
     # ----------- DQN -----------
     # Initialize the environment
-    env = Environment(W, F, Nt, Nr, Nbs, Nbt, Nbr,
-                      r_r, r_t, fc, P_t)
+    env = Environment(W=W,
+                      F=F,
+                      Nt=Nt,
+                      Nr=Nr,
+                      Nbs=Nbs,
+                      Nbt=Nbt,
+                      Nbr=Nbr,
+                      r_r=r_r,
+                      r_t=r_t,
+                      fc=fc,
+                      P_t=P_t,
+                      chunksize=chunksize,
+                      AoA=AoA_Local,
+                      AoD=AoD_Global,
+                      Beta=coeff,
+                      pos_log=pos_log)
+
+    env.create_reward_matrix()
+
+    if not args.DQN:
+        sys.exit("--DQN not called - stopping")
 
     """
     Notice that we are not using any function to make the states discrete here as DQN
@@ -269,10 +285,7 @@ if __name__ == "__main__":
         path_idx = np.random.randint(0, M)
 
         # Reset the environment with the new data
-        state = env.reset(AoA_Local[path_idx][:, data_idx:data_idx + chunksize],
-                          AoD_Global[path_idx][0][:, data_idx:data_idx + chunksize],
-                          coeff[path_idx][0][:, data_idx:data_idx + chunksize],
-                          pos_log[path_idx][0][:, data_idx:data_idx + chunksize])
+        state = env.reset(data_idx, path_idx)
         ep_rewards = 0
         losses = []
 

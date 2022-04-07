@@ -372,10 +372,14 @@ class Environment():
     """
 
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
-                 r_r, r_t, fc, P_t):
-        self.AoA = 0
-        self.AoD = 0
-        self.Beta = 0
+                 r_r, r_t, fc, P_t, chunksize,
+                 AoA, AoD, Beta, pos_log):
+        self.AoA = AoA
+        self.AoD = AoD
+        self.Beta = Beta
+        self.pos_log = pos_log
+
+        # Chosen path taken from the pos_log
         self.pos = 0
 
         # Codebooks
@@ -403,7 +407,7 @@ class Environment():
         self.P_t = P_t
 
         # Number of steps / step count
-        self.nstep = 0
+        self.nstep = chunksize
         self.stepnr = 0
 
         # What state we are in
@@ -411,6 +415,52 @@ class Environment():
 
         # Number of earlier action in the state space
         self.n_earlier_actions = 3
+
+        # Reward Matrix
+        self.Reward_matrix = 0
+
+    def create_reward_matrix(self):
+
+        # Number of episodes / mobility patterns
+        npaths = len(self.AoA)
+
+        # Length of episodes / mobility patterns
+        nsteps = np.shape(self.AoA[0])[1]
+
+        # Initialise the matrix
+        R = np.zeros((npaths, nsteps, self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
+
+        for path in range(npaths):
+            for step in range(nsteps):
+                for b in range(self.Nbs):
+                    # Get channel parameters
+                    beta = self.Beta[path][0][b, step, :]
+
+                    # Calculate steering vectors
+                    alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[path][b, step, :],
+                                                          r=self.r_r, lambda_=self.lambda_)
+                    alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[path][0][b, step, :],
+                                                          r=self.r_t, lambda_=self.lambda_)
+
+                    # SPØRG HVORFOR DET HER SKAL TILFØJES FOR AT VIRKE??
+                    alpha_rx = np.array(alpha_rx, np.csingle)
+                    alpha_tx = np.array(alpha_tx, np.csingle)
+                    alpha_rx = alpha_rx.reshape((len(alpha_rx), 1, self.Nr))
+                    alpha_tx = alpha_tx.reshape((len(alpha_tx), 1, self.Nt))
+                    beta = np.array(beta, np.csingle)
+
+                    # Calculate channel matrix H
+                    H = helpers.jit_H(beta, alpha_rx, alpha_tx, self.Nr, self.Nt)
+
+                    self.W = np.array(self.W, np.csingle)
+                    self.F = np.array(self.F, np.csingle)
+                    H = np.array(H, np.csingle)
+
+                    # Calculate the reward
+                    R[path, step, b] = helpers.jit_Reward(H, self.F, self.W, self.P_t)
+
+        self.Reward_matrix = R
+
 
     def _get_reward(self, action):
 
@@ -487,18 +537,12 @@ class Environment():
 
         return next_state, reward, done, max_r, min_r, mean_r
 
-    def reset(self, AoA, AoD, Beta, pos_log):
+    def reset(self, data_idx, path_idx):
         # Reset step counter
         self.stepnr = 0
 
-        # Get number of steps in the episode
-        self.nstep = np.shape(AoA)[1]
-
-        # Save updated variables
-        self.AoA = AoA
-        self.AoD = AoD
-        self.Beta = Beta
-        self.pos = pos_log
+        # Get the chosen mobility pattern
+        self.pos = self.pos_log[path_idx][0][:, data_idx:data_idx + self.nstep]
 
         # Return the start state()
         return self._start_state()

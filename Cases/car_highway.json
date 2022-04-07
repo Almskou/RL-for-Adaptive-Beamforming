@@ -3,12 +3,12 @@
     "environment":      "Highway",
     "fc":               28e9,
     "receiver":         {
-                        "antennea": 4,
+                        "antennea": 8,
                         "beams": 8
                         },
     "transmitter":      {
-                        "antennea": 4,
-                        "beams": 8
+                        "antennea": 32,
+                        "beams": 32
                         },
     "P_t":              10000,
     "vmax":             37,
