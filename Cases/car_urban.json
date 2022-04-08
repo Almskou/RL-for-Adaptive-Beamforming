@@ -3,8 +3,8 @@
     "environment":      "Urban",
     "fc":               28e9,
     "receiver":         {
-                        "antennea": 8,
-                        "beams": 8
+                        "antennea": 16,
+                        "beams": 16
                         },
     "transmitter":      {
                         "antennea": 32,
