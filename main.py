@@ -125,7 +125,7 @@ if __name__ == "__main__":
     target_update = 25
 
     # How many dense hidden layers and their size. [200, 100] - two layers of size 200 and 100
-    hidden_units = [200, 200]
+    hidden_units = settings["NN"]["hidden_layers"]
 
     # A factor given to the optimising algorithm
     lr = 0.01
@@ -231,8 +231,24 @@ if __name__ == "__main__":
 
     # ----------- DQN -----------
     # Initialize the environment
-    env = Environment(W, F, Nt, Nr, Nbs, Nbt, Nbr,
-                      r_r, r_t, fc, P_t)
+    env = Environment(W=W,
+                      F=F,
+                      Nt=Nt,
+                      Nr=Nr,
+                      Nbs=Nbs,
+                      Nbt=Nbt,
+                      Nbr=Nbr,
+                      r_r=r_r,
+                      r_t=r_t,
+                      fc=fc,
+                      P_t=P_t,
+                      chunksize=chunksize,
+                      AoA=AoA_Local,
+                      AoD=AoD_Global,
+                      Beta=coeff,
+                      pos_log=pos_log)
+
+    env.create_reward_matrix()
 
     """
     Notice that we are not using any function to make the states discrete here as DQN
@@ -269,10 +285,7 @@ if __name__ == "__main__":
         path_idx = np.random.randint(0, M)
 
         # Reset the environment with the new data
-        state = env.reset(AoA_Local[path_idx][:, data_idx:data_idx + chunksize],
-                          AoD_Global[path_idx][0][:, data_idx:data_idx + chunksize],
-                          coeff[path_idx][0][:, data_idx:data_idx + chunksize],
-                          pos_log[path_idx][0][:, data_idx:data_idx + chunksize])
+        state = env.reset(data_idx, path_idx)
         ep_rewards = 0
         losses = []
 

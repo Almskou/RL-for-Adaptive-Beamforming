@@ -14,6 +14,8 @@ import scipy.io as scio
 import classes
 import plots
 
+from numba import njit
+
 
 # %% Functions
 def steering_vectors2d(direction, theta, r, lambda_):
@@ -297,3 +299,24 @@ def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
             raise Exception("ENGINE name is incorrect")
 
     return tmp, pos_log
+
+
+@njit()
+def jit_H(beta, alpha_rx, alpha_tx, Nr, Nt):
+    H = np.zeros((Nr, Nt), dtype=np.complex128)
+    for i in range(len(beta)):
+        H += beta[i] * np.dot(alpha_rx[i, :].T, np.conjugate(alpha_tx[i, :]))
+    H = H * np.sqrt(Nr * Nt)
+
+    return H
+
+
+@njit()
+def jit_Reward(H, F, W, P_t):
+    R = np.zeros((len(F[:, 0]), len(W[:, 0])))
+    # Calculate the reward
+    for p in range(len(F[:, 0])):  # p - transmitter
+        for q in range(len(W[:, 0])):  # q - receiver
+            R[p, q] = 10*np.log10(np.absolute(np.dot(np.dot(np.conjugate(W[q, :]).T, H), F[p, :]) * np.sqrt(P_t)) ** 2)
+
+    return R

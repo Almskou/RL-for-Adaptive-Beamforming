@@ -17,5 +17,8 @@
     "test_par":         {
                         "chunk_size":       10000,
                         "episodes":         100
+                        },
+    "NN":               {
+                        "hidden_layers":      [200, 400, 800, 1600, 3200]
                         }
 }
