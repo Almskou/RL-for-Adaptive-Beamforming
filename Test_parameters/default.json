@@ -5,7 +5,7 @@
 	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
-						"N_steps": 			10000,
+						"N_steps": 			10,
 						"sample_period": 	0.01,
 						"M_episodes":		10,
 						"rlim":             200,
@@ -15,7 +15,10 @@
 						"method":			"SARSA"
 						},
     "test_par":         {
-                        "chunk_size":       100,
-                        "episodes":         20
+                        "chunk_size":       7,
+                        "episodes":         20000
+                        },
+    "NN":               {
+                        "hidden_layers":      [200, 400, 800, 1600, 3200]
                         }
 }

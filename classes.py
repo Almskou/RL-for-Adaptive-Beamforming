@@ -394,7 +394,7 @@ class Environment():
         self.Nbs = Nbs
 
         # Action space
-        self.action_space_n = Nbr
+        self.action_space_n = Nbr*Nbs*Nbt
 
         # Antenna Posistions
         self.r_t = r_t
@@ -432,7 +432,8 @@ class Environment():
         nsteps = np.shape(self.AoA[0])[1]
 
         # Initialise the matrix
-        R = np.zeros((npaths, nsteps, self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
+        R = np.zeros((npaths, nsteps, self.Nbs*len(self.F[:, 0])*len(self.W[:, 0])))
+        R_tmp = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
 
         for path in range(npaths):
             for step in range(nsteps):
@@ -464,7 +465,8 @@ class Environment():
                     H = np.array(H, np.csingle)
 
                     # Calculate the reward
-                    R[path, step, b] = helpers.jit_Reward(H, self.F, self.W, self.P_t)
+                    R_tmp[b] = helpers.jit_Reward(H, self.F, self.W, self.P_t)
+                R[path, step] = R_tmp.flatten()
 
         self.Reward_matrix = R
 
@@ -472,7 +474,7 @@ class Environment():
 
         R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
 
-        return np.max(R[:, :, action]), np.max(R), np.min(np.max(R, axis=1)), np.mean(np.max(R, axis=1))
+        return R[action], np.max(R), np.min(R), np.mean(R)
 
     def _start_state(self):
 

@@ -125,7 +125,7 @@ if __name__ == "__main__":
     target_update = 25
 
     # How many dense hidden layers and their size. [200, 100] - two layers of size 200 and 100
-    hidden_units = [200, 200]
+    hidden_units = settings["NN"]["hidden_layers"]
 
     # A factor given to the optimising algorithm
     lr = 0.01
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if args.DQN:
+    if not args.DQN:
         sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
