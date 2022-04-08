@@ -317,6 +317,6 @@ def jit_Reward(H, F, W, P_t):
     # Calculate the reward
     for p in range(len(F[:, 0])):  # p - transmitter
         for q in range(len(W[:, 0])):  # q - receiver
-            R[p, q] = np.absolute((np.dot(np.dot(np.conjugate(W[q, :]).T, H), F[p, :]) * np.sqrt(P_t))) ** 2
+            R[p, q] = 10*np.log10(np.absolute(np.dot(np.dot(np.conjugate(W[q, :]).T, H), F[p, :]) * np.sqrt(P_t)) ** 2)
 
     return R

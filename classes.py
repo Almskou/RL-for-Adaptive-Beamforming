@@ -410,6 +410,10 @@ class Environment():
         self.nstep = chunksize
         self.stepnr = 0
 
+        # Where the chunks starts and which mobility pattern is has been taken from
+        self.stepstart = 0
+        self.path = 0
+
         # What state we are in
         self.state = np.array([0.0, 0, 0, 0, 0])
 
@@ -442,16 +446,19 @@ class Environment():
                     alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[path][0][b, step, :],
                                                           r=self.r_t, lambda_=self.lambda_)
 
-                    # SPØRG HVORFOR DET HER SKAL TILFØJES FOR AT VIRKE??
+                    # Make sure it is the right type of data
                     alpha_rx = np.array(alpha_rx, np.csingle)
                     alpha_tx = np.array(alpha_tx, np.csingle)
+                    beta = np.array(beta, np.csingle)
+
+                    # Add another dimision with size 1 to be able to do a dot product between them when using Numba
                     alpha_rx = alpha_rx.reshape((len(alpha_rx), 1, self.Nr))
                     alpha_tx = alpha_tx.reshape((len(alpha_tx), 1, self.Nt))
-                    beta = np.array(beta, np.csingle)
 
                     # Calculate channel matrix H
                     H = helpers.jit_H(beta, alpha_rx, alpha_tx, self.Nr, self.Nt)
 
+                    # Make sure it is the right type of data
                     self.W = np.array(self.W, np.csingle)
                     self.F = np.array(self.F, np.csingle)
                     H = np.array(H, np.csingle)
@@ -461,36 +468,9 @@ class Environment():
 
         self.Reward_matrix = R
 
-
     def _get_reward(self, action):
 
-        # Empty Reward Matrix
-        R = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
-
-        # Calculate the reward pairs for each base station
-        for b in range(self.Nbs):
-            # Calculate steering vectors for transmitter and receiver
-            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[b, self.stepnr, :],
-                                                  r=self.r_r, lambda_=self.lambda_)
-            alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[b, self.stepnr, :],
-                                                  r=self.r_t, lambda_=self.lambda_)
-            # Calculate channel matrix H
-            H = np.zeros((self.Nr, self.Nt), dtype=np.complex128)
-            for i in range(len(self.Beta[b, self.stepnr, :])):
-                H += self.Beta[b, self.stepnr, i] * (alpha_rx[i].T @ np.conjugate(alpha_tx[i]))
-            H = H * np.sqrt(self.Nr * self.Nt)
-
-            # Calculate the reward
-            for p in range(len(self.F[:, 0])):  # p - transmitter
-                for q in range(len(self.W[:, 0])):  # q - receiver
-                    R[b, p, q] = np.linalg.norm(np.sqrt(self.P_t) * np.conjugate(self.W[q, :]).T
-                                                @ H @ self.F[p, :]) ** 2
-
-        # Normalise with respect to the distance
-        R = R * np.linalg.norm(self.pos[0:2, self.stepnr])**2
-
-        # Convert to power dB
-        R = 10*np.log10(R) + 40
+        R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
 
         return np.max(R[:, :, action]), np.max(R), np.min(np.max(R, axis=1)), np.mean(np.max(R, axis=1))
 
@@ -540,6 +520,10 @@ class Environment():
     def reset(self, data_idx, path_idx):
         # Reset step counter
         self.stepnr = 0
+
+        # Save where the step start and which mobility pattern is chosen
+        self.stepstart = data_idx
+        self.path = path_idx
 
         # Get the chosen mobility pattern
         self.pos = self.pos_log[path_idx][0][:, data_idx:data_idx + self.nstep]

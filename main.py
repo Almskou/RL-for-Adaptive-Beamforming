@@ -192,6 +192,9 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
+    if args.DQN:
+        sys.exit("--DQN not called - stopping")
+
     # ----------- Extract data from Quadriga simulation -----------
     AoA_Global = channel_par[0][0]  # Angle of Arrival in Global coord. system
     AoD_Global = channel_par[1][0]  # Angle of Departure in Global coord. system
@@ -246,9 +249,6 @@ if __name__ == "__main__":
                       pos_log=pos_log)
 
     env.create_reward_matrix()
-
-    if not args.DQN:
-        sys.exit("--DQN not called - stopping")
 
     """
     Notice that we are not using any function to make the states discrete here as DQN
