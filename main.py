@@ -59,7 +59,7 @@ def parser():
     help_str = """Name of the .json file which contains your test parameters.
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
-                        default="default", help=help_str)
+                        default="test_training", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
     parser.add_argument('--DQN', action='store_true', help=help_str)
@@ -116,13 +116,13 @@ if __name__ == "__main__":
     # ----------- Reinforcement Learning Parameters -----------
 
     # Batch size - number of memories used
-    batch_size = 64
+    batch_size = settings["NN"]["Batch"]
 
     # Number of steps saved in the memory
-    memory_size = 100000
+    memory_size = settings["NN"]["Memory"]
 
     # How often the target policy should be updated. Every 'x' step
-    target_update = 25
+    target_update = settings["NN"]["Target"]
 
     # How many dense hidden layers and their size. [200, 100] - two layers of size 200 and 100
     hidden_units = settings["NN"]["hidden_layers"]
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if not args.DQN:
+    if args.DQN:
         sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
@@ -273,6 +273,8 @@ if __name__ == "__main__":
     optimizer = tf.optimizers.Adam(lr)
 
     total_rewards = np.empty(epochs)
+
+    print("Prep work done")
 
     step = 1
 
@@ -357,9 +359,14 @@ if __name__ == "__main__":
                 optimizer.apply_gradients(zip(gradients, variables))
 
                 losses.append(loss.numpy())
+                loss = loss.numpy()
 
             else:
                 losses.append(0)
+                loss = 0
+
+            with summary_writer.as_default():
+                tf.summary.scalar('Loss', loss, step=step)
 
             # If it is time to update target network
             if timestep % target_update == 0:
@@ -372,10 +379,10 @@ if __name__ == "__main__":
         avg_rewards = total_rewards[max(0, epoch - 100):(epoch + 1)].mean()  # Running average reward of 100 iterations
 
         # Good old book-keeping
-        with summary_writer.as_default():
-            tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
-            tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
-            tf.summary.scalar('Losses', mean(losses), step=epoch)
+        # with summary_writer.as_default():
+            # tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
+            # tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
+            # tf.summary.scalar('Losses', mean(losses), step=epoch)
 
         if debug[1]:
             if epoch % 1 == 0:
