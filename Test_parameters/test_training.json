@@ -1,0 +1,27 @@
+{
+	"engine":          	"octave",
+	"case":			  	"car_urban",
+	"filename":			"test_car_urban_user_10000_8_LOS",
+	"multi_user":       true,
+	"sim_par":			{
+                    	"scenarios":       "3GPP_38.901_UMi_LOS",
+						"N_steps": 			10000,
+						"sample_period": 	0.01,
+						"M_episodes":		8,
+						"rlim":             200,
+						"intersite":        200
+						},
+	"RL_par":			{
+						"method":			"SARSA"
+						},
+    "test_par":         {
+                        "chunk_size":       5000,
+                        "episodes":         1000
+                        },
+    "NN":               {
+                        "hidden_layers":	[500, 500, 1024],
+						"Memory":			10000,
+						"Batch":			512,
+						"Target":			5000
+                        }
+}
