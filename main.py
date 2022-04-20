@@ -39,6 +39,7 @@ summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3'
 
 # global parameters
 RUN = False
+VALIDATE = False
 
 
 # %% ---------- Functions ----------
@@ -116,13 +117,13 @@ if __name__ == "__main__":
     # ----------- Reinforcement Learning Parameters -----------
 
     # Batch size - number of memories used
-    batch_size = 64
+    batch_size = settings["NN"]["Batch"]
 
     # Number of steps saved in the memory
-    memory_size = 100000
+    memory_size = settings["NN"]["Memory"]
 
     # How often the target policy should be updated. Every 'x' step
-    target_update = 25
+    target_update = settings["NN"]["Target"]
 
     # How many dense hidden layers and their size. [200, 100] - two layers of size 200 and 100
     hidden_units = settings["NN"]["hidden_layers"]
@@ -134,9 +135,10 @@ if __name__ == "__main__":
     gamma = 0.99
 
     # Exploring probablity
-    eps_start = 1  # Start prob.
-    eps_end = 0.005  # End prob.
-    eps_decay = 0.001  # how much it decays with until it hits the end pr. step.
+    eps = settings["DQN"]["Epsilon"]
+    eps_start = eps[0]  # Start prob.
+    eps_end = eps[1]  # End prob.
+    eps_decay = eps[2]  # how much it decays with until it hits the end pr. step.
 
     # Chunk size, number of samples taken out.
     chunksize = settings["test_par"]["chunk_size"]
@@ -146,6 +148,9 @@ if __name__ == "__main__":
 
     # Which method RL should us: "simple", "SARSA" OR "Q-LEARNING"
     METHOD = settings["RL_par"]["method"]
+
+    # Number of earlier actions in the state space
+    n_earlier_actions = 3
 
     # ----------- Extracting variables from case -----------
     # Load Scenario configuration
@@ -246,7 +251,8 @@ if __name__ == "__main__":
                       AoA=AoA_Local,
                       AoD=AoD_Global,
                       Beta=coeff,
-                      pos_log=pos_log)
+                      pos_log=pos_log,
+                      n_earlier_actions=n_earlier_actions)
 
     env.create_reward_matrix()
 
@@ -264,8 +270,8 @@ if __name__ == "__main__":
     Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
 
     # Initialize the policy and target network
-    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
-    target_net = Model(len(env.state), hidden_units, env.action_space_n)
+    policy_net = Model(len(env.state), hidden_units, env.action_space_n, n_earlier_actions)
+    target_net = Model(len(env.state), hidden_units, env.action_space_n, n_earlier_actions)
 
     # Copy weights of policy network to target network
     copy_weights(policy_net, target_net)
@@ -274,15 +280,25 @@ if __name__ == "__main__":
 
     total_rewards = np.empty(epochs)
 
+    print("Prep work done")
+
     step = 1
 
     # Buffer for saving the x last y-db mis-alignment prob.
     mis_prob_buffer = np.array([[], [], [], []])
 
+    # Load validation set
+    if VALIDATE:
+        idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
+
     for epoch in range(epochs):
         # Choose data for the episode
-        data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
-        path_idx = np.random.randint(0, M)
+        if VALIDATE:
+            data_idx = idx_matrix[0, epoch]
+            path_idx = idx_matrix[1, epoch]
+        else:
+            data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
+            path_idx = np.random.randint(0, M)
 
         # Reset the environment with the new data
         state = env.reset(data_idx, path_idx)
@@ -357,9 +373,14 @@ if __name__ == "__main__":
                 optimizer.apply_gradients(zip(gradients, variables))
 
                 losses.append(loss.numpy())
+                loss = loss.numpy()
 
             else:
                 losses.append(0)
+                loss = 0
+
+            with summary_writer.as_default():
+                tf.summary.scalar('Loss', loss, step=step)
 
             # If it is time to update target network
             if timestep % target_update == 0:
@@ -372,10 +393,10 @@ if __name__ == "__main__":
         avg_rewards = total_rewards[max(0, epoch - 100):(epoch + 1)].mean()  # Running average reward of 100 iterations
 
         # Good old book-keeping
-        with summary_writer.as_default():
-            tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
-            tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
-            tf.summary.scalar('Losses', mean(losses), step=epoch)
+        # with summary_writer.as_default():
+            # tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
+            # tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
+            # tf.summary.scalar('Losses', mean(losses), step=epoch)
 
         if debug[1]:
             if epoch % 1 == 0:

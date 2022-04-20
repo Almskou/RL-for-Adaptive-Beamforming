@@ -289,9 +289,14 @@ class Model(tf.keras.Model):
     Subclassing a multi-layered NN using Keras from Tensorflow
     """
 
-    def __init__(self, num_states, hidden_units, num_actions):
+    def __init__(self, num_states, hidden_units, num_actions, num_earlier_actions):
         super(Model, self).__init__()  # Used to run the init method of the parent class
-        self.input_layer = kl.InputLayer(input_shape=(num_states,))
+        self.num_earlier_actions = num_earlier_actions
+
+        self.input_layer = kl.InputLayer(input_shape=(num_states-self.num_earlier_actions,))
+
+        self.embedding_layer = kl.Embedding(input_dim=num_actions, output_dim=1, input_length=1)
+
         self.hidden_layers = []
 
         for hidden_unit in hidden_units:
@@ -301,7 +306,9 @@ class Model(tf.keras.Model):
 
     @tf.function
     def call(self, inputs, **kwargs):
-        x = self.input_layer(inputs)
+        x1 = self.input_layer(inputs[:, self.num_earlier_actions:])
+        x2 = kl.Flatten()(self.embedding_layer(inputs[:, :self.num_earlier_actions]))
+        x = kl.Concatenate()([x1, x2])
         for layer in self.hidden_layers:
             x = layer(x)
         output = self.output_layer(x)
@@ -373,7 +380,7 @@ class Environment():
 
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
                  r_r, r_t, fc, P_t, chunksize,
-                 AoA, AoD, Beta, pos_log):
+                 AoA, AoD, Beta, pos_log, n_earlier_actions):
         self.AoA = AoA
         self.AoD = AoD
         self.Beta = Beta
@@ -418,7 +425,7 @@ class Environment():
         self.state = np.array([0.0, 0, 0, 0, 0])
 
         # Number of earlier action in the state space
-        self.n_earlier_actions = 3
+        self.n_earlier_actions = n_earlier_actions
 
         # Reward Matrix
         self.Reward_matrix = 0

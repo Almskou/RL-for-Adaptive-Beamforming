@@ -19,6 +19,12 @@
                         "episodes":         100
                         },
     "NN":               {
-                        "hidden_layers":      [200, 400, 800, 1600, 3200]
-                        }
+                        "hidden_layers":	[500, 1000, 1500, 1024],
+						"Memory":			10000,
+						"Batch":			2000,
+						"Target":			5000
+                        },
+    "DQN":				{
+						"Epsilon":			[1, 0.001, 0.001]
+						}
 }
