@@ -39,6 +39,7 @@ summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3'
 
 # global parameters
 RUN = False
+VALIDATE = False
 
 
 # %% ---------- Functions ----------
@@ -59,7 +60,7 @@ def parser():
     help_str = """Name of the .json file which contains your test parameters.
                 Default is the 'default.json' test parameters'"""
     parser.add_argument('--test_par', type=str,
-                        default="test_training", help=help_str)
+                        default="default", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
     parser.add_argument('--DQN', action='store_true', help=help_str)
@@ -196,7 +197,7 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if args.DQN:
+    if not args.DQN:
         sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
@@ -286,10 +287,18 @@ if __name__ == "__main__":
     # Buffer for saving the x last y-db mis-alignment prob.
     mis_prob_buffer = np.array([[], [], [], []])
 
+    # Load validation set
+    if VALIDATE:
+        idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
+
     for epoch in range(epochs):
         # Choose data for the episode
-        data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
-        path_idx = np.random.randint(0, M)
+        if VALIDATE:
+            data_idx = idx_matrix[0, epoch]
+            path_idx = idx_matrix[1, epoch]
+        else:
+            data_idx = np.random.randint(0, N - chunksize) if (N - chunksize) else 0
+            path_idx = np.random.randint(0, M)
 
         # Reset the environment with the new data
         state = env.reset(data_idx, path_idx)
