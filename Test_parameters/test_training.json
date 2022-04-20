@@ -15,13 +15,16 @@
 						"method":			"SARSA"
 						},
     "test_par":         {
-                        "chunk_size":       5000,
+                        "chunk_size":       8000,
                         "episodes":         1000
                         },
     "NN":               {
-                        "hidden_layers":	[500, 500, 1024],
+                        "hidden_layers":	[500, 1000, 1500, 1024],
 						"Memory":			10000,
-						"Batch":			512,
+						"Batch":			2000,
 						"Target":			5000
-                        }
+                        },
+    "DQN":				{
+						"Epsilon":			[1, 0.001, 0.001]
+						}
 }
