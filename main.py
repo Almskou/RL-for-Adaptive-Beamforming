@@ -8,7 +8,6 @@
 import itertools
 import numpy as np
 import tensorflow as tf
-from statistics import mean
 from collections import namedtuple
 
 import json
@@ -152,6 +151,12 @@ if __name__ == "__main__":
     # Number of earlier actions in the state space
     n_earlier_actions = 3
 
+    # Number of earlier positions (included current pos) in the state space
+    n_earlier_pos = 3
+
+    # Number of earlier oritations (included current ori) in the state space
+    n_earlier_ori = 3
+
     # ----------- Extracting variables from case -----------
     # Load Scenario configuration
     with open(f'Cases/{CASE}.json', 'r') as fp:
@@ -252,7 +257,10 @@ if __name__ == "__main__":
                       AoD=AoD_Global,
                       Beta=coeff,
                       pos_log=pos_log,
-                      n_earlier_actions=n_earlier_actions)
+                      ori_log=Orientation,
+                      n_earlier_actions=n_earlier_actions,
+                      n_earlier_pos=n_earlier_pos,
+                      n_earlier_ori=n_earlier_ori)
 
     env.create_reward_matrix()
 
@@ -285,13 +293,13 @@ if __name__ == "__main__":
     step = 1
 
     # Buffer for saving the x last y-db mis-alignment prob.
-    mis_prob_buffer = np.array([[], [], [], []])
+    mis_prob_buffer = np.array([[], [], [], [], []])
 
     # Load validation set
     if VALIDATE:
         idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
 
-    for epoch in range(epochs):
+    for epoch in range(3, epochs):
         # Choose data for the episode
         if VALIDATE:
             data_idx = idx_matrix[0, epoch]
@@ -302,21 +310,19 @@ if __name__ == "__main__":
 
         # Reset the environment with the new data
         state = env.reset(data_idx, path_idx)
-        ep_rewards = 0
-        losses = []
 
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
             action, rate, flag = agent.select_action(state, policy_net)
             next_state, reward, done, max_reward, min_reward, mean_reward = env.step(action)
-            ep_rewards += reward
 
             # Calculate the miss alignment prob. and add to the buffer
             mis_prob_buffer = np.insert(mis_prob_buffer, 0,
                                         [reward < max_reward - 3,
                                          reward < max_reward - 5,
                                          reward < max_reward - 7,
-                                         reward < max_reward - 9], axis=1)
+                                         reward < max_reward - 9,
+                                         max_reward - reward], axis=1)
 
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:
@@ -327,16 +333,18 @@ if __name__ == "__main__":
             # Log the reward
             with summary_writer.as_default():
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
-                tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
+                # tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
+                tf.summary.scalar('Mis-alignment-avg', mis_prob[4], step=step,
+                                  description="Average Mis-alignment in [db]")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
-                tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
+                # tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
             with summary_writer_sub_2.as_default():
                 tf.summary.scalar('Step_reward', min_reward, step=step, description="Mean reward")
-                tf.summary.scalar('Mis-alignment', mis_prob[2], step=step, description="7 dB")
+                # tf.summary.scalar('Mis-alignment', mis_prob[2], step=step, description="7 dB")
             with summary_writer_sub_3.as_default():
                 tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
-                tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
+                # tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
 
             step += 1
 
@@ -372,11 +380,9 @@ if __name__ == "__main__":
                 gradients = tape.gradient(loss, variables)
                 optimizer.apply_gradients(zip(gradients, variables))
 
-                losses.append(loss.numpy())
                 loss = loss.numpy()
 
             else:
-                losses.append(0)
                 loss = 0
 
             with summary_writer.as_default():
@@ -388,17 +394,3 @@ if __name__ == "__main__":
 
             if done:
                 break
-
-        total_rewards[epoch] = ep_rewards
-        avg_rewards = total_rewards[max(0, epoch - 100):(epoch + 1)].mean()  # Running average reward of 100 iterations
-
-        # Good old book-keeping
-        # with summary_writer.as_default():
-            # tf.summary.scalar('Episode_reward', total_rewards[epoch], step=epoch)
-            # tf.summary.scalar('Running_avg_reward', avg_rewards, step=epoch)
-            # tf.summary.scalar('Losses', mean(losses), step=epoch)
-
-        if debug[1]:
-            if epoch % 1 == 0:
-                print(f"Episode: {epoch} Episode_Reward: {total_rewards[epoch]} Avg_Reward: {avg_rewards: 0.1f}" +
-                      f" Losses:{mean(losses): 0.1f} rate:{rate: 0.8f} flag:{flag}")

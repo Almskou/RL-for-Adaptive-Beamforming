@@ -289,11 +289,11 @@ class Model(tf.keras.Model):
     Subclassing a multi-layered NN using Keras from Tensorflow
     """
 
-    def __init__(self, num_states, hidden_units, num_actions, num_earlier_actions):
+    def __init__(self, num_states, hidden_units, num_actions, n_earlier_actions):
         super(Model, self).__init__()  # Used to run the init method of the parent class
-        self.num_earlier_actions = num_earlier_actions
+        self.n_earlier_actions = n_earlier_actions
 
-        self.input_layer = kl.InputLayer(input_shape=(num_states-self.num_earlier_actions,))
+        self.input_layer = kl.InputLayer(input_shape=(num_states-self.n_earlier_actions,))
 
         self.embedding_layer = kl.Embedding(input_dim=num_actions, output_dim=1, input_length=1)
 
@@ -306,8 +306,8 @@ class Model(tf.keras.Model):
 
     @tf.function
     def call(self, inputs, **kwargs):
-        x1 = self.input_layer(inputs[:, self.num_earlier_actions:])
-        x2 = kl.Flatten()(self.embedding_layer(inputs[:, :self.num_earlier_actions]))
+        x1 = self.input_layer(inputs[:, self.n_earlier_actions:])
+        x2 = kl.Flatten()(self.embedding_layer(inputs[:, :self.n_earlier_actions]))
         x = kl.Concatenate()([x1, x2])
         for layer in self.hidden_layers:
             x = layer(x)
@@ -380,14 +380,19 @@ class Environment():
 
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
                  r_r, r_t, fc, P_t, chunksize,
-                 AoA, AoD, Beta, pos_log, n_earlier_actions):
+                 AoA, AoD, Beta, pos_log, ori_log,
+                 n_earlier_actions, n_earlier_pos, n_earlier_ori):
         self.AoA = AoA
         self.AoD = AoD
         self.Beta = Beta
         self.pos_log = pos_log
+        self.ori_log = ori_log
 
         # Chosen path taken from the pos_log
         self.pos = 0
+
+        # Chosen oritations taken from ori_log
+        self.ori = 0
 
         # Codebooks
         self.W = W
@@ -426,6 +431,12 @@ class Environment():
 
         # Number of earlier action in the state space
         self.n_earlier_actions = n_earlier_actions
+
+        # Number of earlier positions (included current pos) in the state space
+        self.n_earlier_pos = n_earlier_pos
+
+        # Number of earlier oritations (included current ori) in the state space
+        self.n_earlier_ori = n_earlier_ori
 
         # Reward Matrix
         self.Reward_matrix = 0
@@ -485,25 +496,53 @@ class Environment():
 
     def _start_state(self):
 
-        # Select a random start state
+        # Select a random start state - Actions
         self.state = np.random.choice(range(self.action_space_n), size=self.n_earlier_actions)
 
-        # Add start postion to the start state
-        self.state = np.append(self.state, [self.pos[0, 0], self.pos[1, 0]])
+        # Add ori to the start state
+        self.state = np.append(self.state, [self.ori[0] + np.zeros(self.n_earlier_ori)])
+
+        # Add start postion to the start state + 'x' earlier posistions
+        # x:
+        self.state = np.append(self.state, [self.pos[0, 0] + np.zeros(self.n_earlier_pos)])
+
+        # y:
+        self.state = np.append(self.state, [self.pos[1, 0] + np.zeros(self.n_earlier_pos)])
 
         return self.state
 
     def _state_update(self, action):
 
+        # ACTION
         # Insert new action in the front of the array
         state_tmp = np.insert(self.state, 0, action)
 
         # Remove the fourth element (The oldest action)
         self.state = np.delete(state_tmp, self.n_earlier_actions)
 
-        # Update the position state to the newest value
-        self.state[3] = self.pos[0, self.stepnr]
-        self.state[4] = self.pos[1, self.stepnr]
+        # ORITATION
+        if self.n_earlier_ori > 0:
+            # Insert new action in the front of the array
+            state_tmp = np.insert(self.state, self.n_earlier_actions, self.ori[self.stepnr])
+
+            # Remove the fourth element (The oldest action)
+            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori)
+
+        # POSISTION
+        # x:
+        # Insert new action in the front of the array
+        state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori, self.pos[0, self.stepnr])
+
+        # Remove the fourth element (The oldest action)
+        self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos)
+
+        # y:
+        # Insert new action in the front of the array
+        state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos,
+                              self.pos[1, self.stepnr])
+
+        # Remove the fourth element (The oldest action)
+        self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + 2*self.n_earlier_pos)
 
         return self.state
 
@@ -536,6 +575,7 @@ class Environment():
 
         # Get the chosen mobility pattern
         self.pos = self.pos_log[path_idx][0][:, data_idx:data_idx + self.nstep]
+        self.ori = self.ori_log[path_idx][0][2, data_idx:data_idx + self.nstep]
 
         # Return the start state()
         return self._start_state()
