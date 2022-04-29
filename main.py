@@ -131,7 +131,7 @@ if __name__ == "__main__":
     lr = 0.01
 
     # Forgetting factor
-    gamma = 0.99
+    gamma = 0.7
 
     # Exploring probablity
     eps = settings["DQN"]["Epsilon"]
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     if VALIDATE:
         idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
 
-    for epoch in range(3, epochs):
+    for epoch in range(epochs):
         # Choose data for the episode
         if VALIDATE:
             data_idx = idx_matrix[0, epoch]
@@ -310,6 +310,9 @@ if __name__ == "__main__":
 
         # Reset the environment with the new data
         state = env.reset(data_idx, path_idx)
+
+        # Buffer to save all the mis_prob values in an episode
+        mis_prob_all = []
 
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
@@ -324,6 +327,8 @@ if __name__ == "__main__":
                                          reward < max_reward - 9,
                                          max_reward - reward], axis=1)
 
+            mis_prob_all.append(max_reward - reward)
+
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:
                 mis_prob_buffer = np.delete(mis_prob_buffer, -1, axis=1)
@@ -335,7 +340,7 @@ if __name__ == "__main__":
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
                 # tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
                 tf.summary.scalar('Mis-alignment-avg', mis_prob[4], step=step,
-                                  description="Average Mis-alignment in [db]")
+                                  description="Average Mis-alignment in [db] for the last 1000 steps")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
                 # tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
@@ -394,3 +399,8 @@ if __name__ == "__main__":
 
             if done:
                 break
+
+        # Log the reward
+        with summary_writer.as_default():
+            tf.summary.scalar('Mis-alignment-avg-episode', np.mean(mis_prob_all), step=epoch,
+                              description="Average Mis-alignment in [db] for an episode")
