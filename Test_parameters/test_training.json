@@ -1,7 +1,7 @@
 {
 	"engine":          	"octave",
 	"case":			  	"car_urban",
-	"filename":			"test_car_urban_user_10000_8_LOS",
+	"filename":			"vali_car_urban_user_10000_8_LOS",
 	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
@@ -15,14 +15,14 @@
 						"method":			"SARSA"
 						},
     "test_par":         {
-                        "chunk_size":       8000,
+                        "chunk_size":       5000,
                         "episodes":         1000
                         },
     "NN":               {
-                        "hidden_layers":	[500, 1000, 1500, 1024],
-						"Memory":			10000,
-						"Batch":			2000,
-						"Target":			5000
+                        "hidden_layers":	[1000, 10000, 10000, 5000, 1024],
+						"Memory":			1000,
+						"Batch":			500,
+						"Target":			10
                         },
     "DQN":				{
 						"Epsilon":			[1, 0.001, 0.001]
