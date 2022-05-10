@@ -1,7 +1,7 @@
 {
 	"engine":          	"octave",
 	"case":			  	"car_urban",
-	"filename":			"test_car_urban_user_10000_8_LOS",
+	"filename":			"training_car_urban_user_10000_8_LOS",
 	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
@@ -25,5 +25,6 @@
 	"DQN":				{
 						"Epsilon":			[0.01, 0.01, 0.001],
 						"Gamma":            0.7
-						}
+						},
+    "noise":            true
 }

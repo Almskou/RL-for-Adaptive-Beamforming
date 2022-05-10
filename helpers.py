@@ -313,10 +313,10 @@ def jit_H(beta, alpha_rx, alpha_tx, Nr, Nt):
 
 @njit()
 def jit_Reward(H, F, W, P_t):
-    R = np.zeros((len(F[:, 0]), len(W[:, 0])))
+    R = np.zeros((len(F[:, 0]), len(W[:, 0])), dtype=np.complex128)
     # Calculate the reward
     for p in range(len(F[:, 0])):  # p - transmitter
         for q in range(len(W[:, 0])):  # q - receiver
-            R[p, q] = 10*np.log10(np.absolute(np.dot(np.dot(np.conjugate(W[q, :]).T, H), F[p, :]) * np.sqrt(P_t)) ** 2)
+            R[p, q] = np.dot(np.dot(np.conjugate(W[q, :]).T, H), F[p, :]) * np.sqrt(P_t)
 
     return R

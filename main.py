@@ -145,6 +145,9 @@ if __name__ == "__main__":
     # Number of episodes per chunk
     epochs = settings["test_par"]["episodes"]
 
+    # Wheter noise should be added
+    noise = settings["noise"]
+
     # Number of earlier actions in the state space
     n_earlier_actions = 3
 
@@ -250,6 +253,7 @@ if __name__ == "__main__":
                       fc=fc,
                       P_t=P_t,
                       chunksize=chunksize,
+                      noise=noise,
                       AoA=AoA_Local,
                       AoD=AoD_Global,
                       Beta=coeff,
@@ -314,17 +318,17 @@ if __name__ == "__main__":
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
             action, rate, flag = agent.select_action(state, policy_net)
-            next_state, reward, done, max_reward, min_reward, mean_reward = env.step(action)
+            next_state, reward, done, max_reward, min_reward, mean_reward, reward_noise_free = env.step(action)
 
             # Calculate the miss alignment prob. and add to the buffer
             mis_prob_buffer = np.insert(mis_prob_buffer, 0,
-                                        [reward < max_reward - 3,
-                                         reward < max_reward - 5,
-                                         reward < max_reward - 7,
-                                         reward < max_reward - 9,
-                                         max_reward - reward], axis=1)
+                                        [reward_noise_free < max_reward - 3,
+                                         reward_noise_free < max_reward - 5,
+                                         reward_noise_free < max_reward - 7,
+                                         reward_noise_free < max_reward - 9,
+                                         max_reward - reward_noise_free], axis=1)
 
-            mis_prob_all.append(max_reward - reward)
+            mis_prob_all.append(max_reward - reward_noise_free)
 
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:

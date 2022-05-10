@@ -374,7 +374,7 @@ class Environment():
     """
 
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
-                 r_r, r_t, fc, P_t, chunksize,
+                 r_r, r_t, fc, P_t, chunksize, noise,
                  AoA, AoD, Beta, pos_log, ori_log,
                  n_earlier_actions, n_earlier_pos, n_earlier_ori):
         self.AoA = AoA
@@ -436,6 +436,9 @@ class Environment():
         # Reward Matrix
         self.Reward_matrix = 0
 
+        # Bool on whether noise should be added
+        self.noise = noise
+
     def create_reward_matrix(self):
 
         # Number of episodes / mobility patterns
@@ -445,8 +448,8 @@ class Environment():
         nsteps = np.shape(self.AoA[0])[1]
 
         # Initialise the matrix
-        R = np.zeros((npaths, nsteps, self.Nbs*len(self.F[:, 0])*len(self.W[:, 0])))
-        R_tmp = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])))
+        R = np.zeros((npaths, nsteps, self.Nbs*len(self.F[:, 0])*len(self.W[:, 0])), dtype=np.complex128)
+        R_tmp = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])), dtype=np.complex128)
 
         for path in range(npaths):
             for step in range(nsteps):
@@ -487,7 +490,20 @@ class Environment():
 
         R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
 
-        return R[action], np.max(R), np.min(R), np.mean(R)
+        R_action = R[action]
+        R_action_db = 10*np.log10(np.absolute(R_action)**2)
+        if self.noise:
+            # 8.923e-07 = sqrt(Pn/2)
+            noise_complex = 1*np.random.normal(0, 8.923e-07, 1) + 1j*np.random.normal(0, 8.923e-07, 1)
+            R_action_noise = (10*np.log10(np.absolute(R_action, noise_complex)**2))[0].real
+        else:
+            R_action_noise = R_action_db
+
+        R_max = 10*np.log10(np.absolute(np.max(R))**2)
+        R_min = 10*np.log10(np.absolute(np.min(R))**2)
+        R_mean = 10*np.log10(np.absolute(np.mean(R))**2)
+
+        return R_action_noise, R_max, R_min, R_mean, R_action_db
 
     def _start_state(self):
 
@@ -544,7 +560,7 @@ class Environment():
     def step(self, action):
 
         # Get the reward
-        reward, max_r, min_r, mean_r = self._get_reward(action)
+        reward, max_r, min_r, mean_r, noise_free_r = self._get_reward(action)
 
         # Update counter
         self.stepnr += 1
@@ -558,7 +574,7 @@ class Environment():
         else:
             done = False
 
-        return next_state, reward, done, max_r, min_r, mean_r
+        return next_state, reward, done, max_r, min_r, mean_r, noise_free_r
 
     def reset(self, data_idx, path_idx):
         # Reset step counter
