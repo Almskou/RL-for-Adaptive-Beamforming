@@ -38,7 +38,7 @@ summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3'
 
 # global parameters
 RUN = False
-VALIDATE = False
+VALIDATE = True
 
 
 # %% ---------- Functions ----------
@@ -128,10 +128,10 @@ if __name__ == "__main__":
     hidden_units = settings["NN"]["hidden_layers"]
 
     # A factor given to the optimising algorithm
-    lr = 0.01
+    lr = settings["NN"]["Learning"]
 
     # Forgetting factor
-    gamma = 0.7
+    gamma = settings["DQN"]["Gamma"]
 
     # Exploring probablity
     eps = settings["DQN"]["Epsilon"]
@@ -144,9 +144,6 @@ if __name__ == "__main__":
 
     # Number of episodes per chunk
     epochs = settings["test_par"]["episodes"]
-
-    # Which method RL should us: "simple", "SARSA" OR "Q-LEARNING"
-    METHOD = settings["RL_par"]["method"]
 
     # Number of earlier actions in the state space
     n_earlier_actions = 3
@@ -278,8 +275,8 @@ if __name__ == "__main__":
     Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
 
     # Initialize the policy and target network
-    policy_net = Model(len(env.state), hidden_units, env.action_space_n, n_earlier_actions)
-    target_net = Model(len(env.state), hidden_units, env.action_space_n, n_earlier_actions)
+    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
+    target_net = Model(len(env.state), hidden_units, env.action_space_n)
 
     # Copy weights of policy network to target network
     copy_weights(policy_net, target_net)

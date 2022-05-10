@@ -289,13 +289,10 @@ class Model(tf.keras.Model):
     Subclassing a multi-layered NN using Keras from Tensorflow
     """
 
-    def __init__(self, num_states, hidden_units, num_actions, n_earlier_actions):
+    def __init__(self, num_states, hidden_units, num_actions):
         super(Model, self).__init__()  # Used to run the init method of the parent class
-        self.n_earlier_actions = n_earlier_actions
 
-        self.input_layer = kl.InputLayer(input_shape=(num_states-self.n_earlier_actions,))
-
-        self.embedding_layer = kl.Embedding(input_dim=num_actions, output_dim=1, input_length=1)
+        self.input_layer = kl.InputLayer(input_shape=(num_states,))
 
         self.hidden_layers = []
 
@@ -306,9 +303,7 @@ class Model(tf.keras.Model):
 
     @tf.function
     def call(self, inputs, **kwargs):
-        x1 = self.input_layer(inputs[:, self.n_earlier_actions:])
-        x2 = kl.Flatten()(self.embedding_layer(inputs[:, :self.n_earlier_actions]))
-        x = kl.Concatenate()([x1, x2])
+        x = self.input_layer(inputs)
         for layer in self.hidden_layers:
             x = layer(x)
         output = self.output_layer(x)

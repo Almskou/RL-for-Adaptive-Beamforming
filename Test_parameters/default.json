@@ -1,30 +1,29 @@
 {
-	"engine":          	"MATLAB",
+	"engine":          	"octave",
 	"case":			  	"car_urban",
-	"filename":			"default_test_case_multi_user",
+	"filename":			"test_car_urban_user_10000_8_LOS",
 	"multi_user":       true,
 	"sim_par":			{
                     	"scenarios":       "3GPP_38.901_UMi_LOS",
 						"N_steps": 			10000,
 						"sample_period": 	0.01,
-						"M_episodes":		4,
+						"M_episodes":		8,
 						"rlim":             200,
 						"intersite":        200
 						},
-	"RL_par":			{
-						"method":			"SARSA"
-						},
     "test_par":         {
-                        "chunk_size":       10000,
-                        "episodes":         100
+                        "chunk_size":       5000,
+                        "episodes":         200
                         },
     "NN":               {
-                        "hidden_layers":	[500, 1000, 1500, 1024],
-						"Memory":			10000,
-						"Batch":			2000,
-						"Target":			5000
+                        "hidden_layers":	[50, 50],
+						"Memory":			1000,
+						"Batch":			500,
+						"Target":			10,
+						"Learning":			0.01
                         },
-    "DQN":				{
-						"Epsilon":			[1, 0.001, 0.001]
+	"DQN":				{
+						"Epsilon":			[0.01, 0.01, 0.001],
+						"Gamma":            0.7
 						}
 }
