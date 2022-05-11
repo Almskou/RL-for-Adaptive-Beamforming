@@ -508,9 +508,10 @@ class Environment():
     def _get_reward(self, action):
 
         R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
+        R_db = 10*np.log10(np.absolute(R)**2)
 
         R_action = R[action]
-        R_action_db = 10*np.log10(np.absolute(R_action)**2)
+        R_action_db = R_db[action]
         if self.noise:
             # 8.923e-07 = sqrt(Pn/2)
             noise_complex = 1*np.random.normal(0, 8.923e-07, 1) + 1j*np.random.normal(0, 8.923e-07, 1)
@@ -518,9 +519,9 @@ class Environment():
         else:
             R_action_noise = R_action_db
 
-        R_max = 10*np.log10(np.absolute(np.max(R))**2)
-        R_min = 10*np.log10(np.absolute(np.min(R))**2)
-        R_mean = 10*np.log10(np.absolute(np.mean(R))**2)
+        R_max = np.max(R_db)
+        R_min = np.min(R_db)
+        R_mean = np.mean(R_db)
 
         return R_action_noise, R_max, R_min, R_mean, R_action_db
 
