@@ -8,7 +8,6 @@
 import itertools
 import numpy as np
 import tensorflow as tf
-from collections import namedtuple
 
 import json
 import argparse
@@ -18,7 +17,7 @@ import os
 import platform
 
 import helpers
-from classes import Model, ReplayMemory, EpsilonGreedyStrategy, DQN_Agent, Environment
+from classes import Simple_Agent, Environment
 import plots
 
 # Initialize tensorboard object
@@ -62,13 +61,15 @@ def parser():
                         default="default", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
-    parser.add_argument('--DQN', action='store_true', help=help_str)
+    parser.add_argument('--DQN', action='store_false', help=help_str)
 
     return parser.parse_args()
 
 
 # %% ---------- Main ----------
 if __name__ == "__main__":
+    threshold = 0.9
+
     # debug: [plot, print, savefig]
     debug = [False, False, True]
 
@@ -270,22 +271,8 @@ if __name__ == "__main__":
     can handle discrete state spaces.
     """
 
-    # Initialize Class variables
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = DQN_Agent(strategy, env.action_space_n)
-    memory = ReplayMemory(memory_size)
-
-    # Experience tuple variable to store the experience in a defined format
-    Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
-
-    # Initialize the policy and target network
-    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
-    target_net = Model(len(env.state), hidden_units, env.action_space_n)
-
-    # Copy weights of policy network to target network
-    copy_weights(policy_net, target_net)
-
-    optimizer = tf.optimizers.Adam(lr)
+    # Intiliase agent
+    agent = Simple_Agent(env.action_space_n, threshold)
 
     total_rewards = np.empty(epochs)
 
@@ -301,6 +288,9 @@ if __name__ == "__main__":
         idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
 
     for epoch in range(epochs):
+        # Initialise normalise reward
+        norm_reward = 0
+
         # Choose data for the episode
         if VALIDATE:
             data_idx = idx_matrix[0, epoch]
@@ -317,8 +307,9 @@ if __name__ == "__main__":
 
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
-            action = agent.select_action(state, policy_net)
-            next_state, reward, done, max_reward, min_reward, mean_reward, reward_noise_free = env.step(action)
+            action = agent.select_action(norm_reward)
+
+            _, reward, done, max_reward, min_reward, mean_reward, reward_noise_free = env.step(action)
 
             # Calculate the miss alignment prob. and add to the buffer
             mis_prob_buffer = np.insert(mis_prob_buffer, 0,
@@ -352,51 +343,14 @@ if __name__ == "__main__":
                 tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
                 # tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
 
+            # Get the distance to the nearest BS
+            BS_dist = np.min(np.linalg.norm(env.pos_log[path_idx]
+                                            [0][0:2, (data_idx + timestep):(data_idx + timestep + 1)] - pos_bs, axis=0))
+
+            # Calculate the normalise reward
+            norm_reward = (10*np.log10(P_t * (lambda_**2)/((4*np.pi*BS_dist)**2))) / reward
+
             step += 1
-
-            # Store the experience in Replay memory
-            memory.push(Experience(state, action, next_state, reward, done))
-            state = next_state
-
-            if memory.can_provide_sample(batch_size):
-                # Sample a random batch of experience from memory
-                experiences = memory.sample(batch_size)
-                batch = Experience(*zip(*experiences))
-
-                # batch is a list of tuples, converting to numpy array here
-                states = np.asarray(batch[0])
-                actions = np.asarray(batch[1])
-                rewards = np.asarray(batch[3])
-                next_states = np.asarray(batch[2])
-                dones = np.asarray(batch[4])
-
-                # Calculate TD-target
-                q_s_a_prime = np.max(target_net(np.atleast_2d(next_states).astype('float32')), axis=1)
-                q_s_a_target = np.where(dones, rewards, rewards+gamma*q_s_a_prime)
-                q_s_a_target = tf.convert_to_tensor(q_s_a_target, dtype='float32')
-
-                # Calculate Loss function and gradient values for gradient descent
-                with tf.GradientTape() as tape:
-                    q_s_a = tf.math.reduce_sum(policy_net(np.atleast_2d(states).astype('float32'))
-                                               * tf.one_hot(actions, env.action_space_n), axis=1)
-                    loss = tf.math.reduce_mean(tf.square(q_s_a_target - q_s_a))
-
-                # Update the policy network weights using ADAM
-                variables = policy_net.trainable_variables
-                gradients = tape.gradient(loss, variables)
-                optimizer.apply_gradients(zip(gradients, variables))
-
-                loss = loss.numpy()
-
-            else:
-                loss = 0
-
-            with summary_writer.as_default():
-                tf.summary.scalar('Loss', loss, step=step)
-
-            # If it is time to update target network
-            if timestep % target_update == 0:
-                copy_weights(policy_net, target_net)
 
             if done:
                 break

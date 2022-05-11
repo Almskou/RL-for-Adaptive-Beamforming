@@ -363,9 +363,28 @@ class DQN_Agent():
         self.current_step += 1
 
         if rate > random.random():
-            return random.randrange(self.num_actions), rate, True
+            return random.randrange(self.num_actions)
         else:
-            return np.argmax(policy_net(np.atleast_2d(np.atleast_2d(state).astype('float32')))), rate, False
+            return np.argmax(policy_net(np.atleast_2d(np.atleast_2d(state).astype('float32'))))
+
+
+class Simple_Agent():
+    """
+    Used to take actions by using a simple heuristic approach.
+    """
+
+    def __init__(self, num_actions, threshold):
+        self.num_actions = num_actions
+        self.threshold = threshold
+        self.action = random.randrange(self.num_actions)
+
+    def select_action(self, norm_reward):
+
+        # Take a new action if the norm. reward is less than set threshold
+        if norm_reward < self.threshold:
+            self.action = random.randrange(self.num_actions)
+
+        return self.action
 
 
 class Environment():
