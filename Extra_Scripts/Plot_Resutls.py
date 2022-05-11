@@ -70,10 +70,10 @@ def plot_mis(Basedir, Test, Test_No, Plotdir):
 if __name__ == '__main__':
     Basedir = "../Results"
     Plotdir = "../Plots"
-    Test = "Learning_Rate"
+    Test = "Gamma"
     # Test_No = 1
 
-    for Test_No in range(6, 8):
+    for Test_No in range(1, 8):
         # %% Plot Loss
         plot_loss(Basedir, Test, Test_No, Plotdir)
 

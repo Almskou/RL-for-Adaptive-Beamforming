@@ -495,7 +495,7 @@ class Environment():
         if self.noise:
             # 8.923e-07 = sqrt(Pn/2)
             noise_complex = 1*np.random.normal(0, 8.923e-07, 1) + 1j*np.random.normal(0, 8.923e-07, 1)
-            R_action_noise = (10*np.log10(np.absolute(R_action, noise_complex)**2))[0].real
+            R_action_noise = (10*np.log10(np.absolute(R_action + noise_complex)**2))[0]
         else:
             R_action_noise = R_action_db
 
