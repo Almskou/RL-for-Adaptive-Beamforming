@@ -149,13 +149,13 @@ if __name__ == "__main__":
     noise = settings["noise"]
 
     # Number of earlier actions in the state space
-    n_earlier_actions = 3
-
-    # Number of earlier positions (included current pos) in the state space
-    n_earlier_pos = 3
+    n_earlier_actions = settings["DQN"]["State"][0]
 
     # Number of earlier oritations (included current ori) in the state space
-    n_earlier_ori = 3
+    n_earlier_ori = settings["DQN"]["State"][1]
+
+    # Number of earlier positions (included current pos) in the state space
+    n_earlier_pos = settings["DQN"]["State"][2]
 
     # ----------- Extracting variables from case -----------
     # Load Scenario configuration

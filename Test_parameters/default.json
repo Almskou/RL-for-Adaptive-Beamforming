@@ -24,7 +24,8 @@
                         },
 	"DQN":				{
 						"Epsilon":			[0.01, 0.01, 0.001],
-						"Gamma":            0.7
+						"Gamma":            0.7,
+						"State":            [3, 3, 3]
 						},
     "noise":            true
 }

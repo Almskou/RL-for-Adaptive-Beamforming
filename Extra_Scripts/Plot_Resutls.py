@@ -9,6 +9,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import seaborn as sns
 mpl.rcParams['agg.path.chunksize'] = 10000
 
 BATCH_SIZE = 5000
@@ -53,6 +54,8 @@ def plot_mis(Basedir, Test, Test_No, Plotdir):
 
     print(f"Mean Mis - {Test} - Test No. {Test_No}: {np.mean(Mis[:, 1]):.3f}")
 
+    # sns.ecdfplot(Mis[:, 1])
+
     Mis_Smooth = smooth(Mis[:, 1], 0.99999)
 
     plt.figure(figsize=(18, 6), dpi=160)
@@ -70,7 +73,7 @@ def plot_mis(Basedir, Test, Test_No, Plotdir):
 if __name__ == '__main__':
     Basedir = "../Results"
     Plotdir = "../Plots"
-    Test = "Gamma"
+    Test = "Epsilon"
     # Test_No = 1
 
     for Test_No in range(1, 8):

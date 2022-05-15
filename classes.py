@@ -545,11 +545,12 @@ class Environment():
     def _state_update(self, action):
 
         # ACTION
-        # Insert new action in the front of the array
-        state_tmp = np.insert(self.state, 0, action)
+        if self.n_earlier_actions > 0:
+            # Insert new action in the front of the array
+            state_tmp = np.insert(self.state, 0, action)
 
-        # Remove the fourth element (The oldest action)
-        self.state = np.delete(state_tmp, self.n_earlier_actions)
+            # Remove the fourth element (The oldest action)
+            self.state = np.delete(state_tmp, self.n_earlier_actions)
 
         # ORITATION
         if self.n_earlier_ori > 0:
@@ -560,20 +561,21 @@ class Environment():
             self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori)
 
         # POSISTION
-        # x:
-        # Insert new action in the front of the array
-        state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori, self.pos[0, self.stepnr])
+        if self.n_earlier_pos > 0:
+            # x:
+            # Insert new action in the front of the array
+            state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori, self.pos[0, self.stepnr])
 
-        # Remove the fourth element (The oldest action)
-        self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos)
+            # Remove the fourth element (The oldest action)
+            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos)
 
-        # y:
-        # Insert new action in the front of the array
-        state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos,
-                              self.pos[1, self.stepnr])
+            # y:
+            # Insert new action in the front of the array
+            state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos,
+                                  self.pos[1, self.stepnr])
 
-        # Remove the fourth element (The oldest action)
-        self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + 2*self.n_earlier_pos)
+            # Remove the fourth element (The oldest action)
+            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + 2*self.n_earlier_pos)
 
         return self.state
 
