@@ -296,6 +296,9 @@ if __name__ == "__main__":
     # Buffer for saving the x last y-db mis-alignment prob.
     mis_prob_buffer = np.array([[], [], [], [], []])
 
+    # Buffer for saving all mis-alignment values
+    mis_save_all = np.zeros(chunksize*epochs)
+
     # Load validation set
     if VALIDATE:
         idx_matrix = np.load(f"Validation_idx/validation_idx_{chunksize}.npy")
@@ -313,7 +316,7 @@ if __name__ == "__main__":
         state = env.reset(data_idx, path_idx)
 
         # Buffer to save all the mis_prob values in an episode
-        mis_prob_all = []
+        mis_prob_ep = []
 
         for timestep in itertools.count():
             # Take action and observe next_stae, reward and done signal
@@ -328,7 +331,8 @@ if __name__ == "__main__":
                                          reward_noise_free < max_reward - 9,
                                          max_reward - reward_noise_free], axis=1)
 
-            mis_prob_all.append(max_reward - reward_noise_free)
+            mis_prob_ep.append(max_reward - reward_noise_free)
+            mis_save_all[step-1] = max_reward - reward_noise_free
 
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:
@@ -403,5 +407,8 @@ if __name__ == "__main__":
 
         # Log the reward
         with summary_writer.as_default():
-            tf.summary.scalar('Mis-alignment-avg-episode', np.mean(mis_prob_all), step=epoch,
+            tf.summary.scalar('Mis-alignment-avg-episode', np.mean(mis_prob_ep), step=epoch,
                               description="Average Mis-alignment in [db] for an episode")
+
+        # Save the values
+        np.save(f"logs/{name}_mis_alignment", mis_save_all)
