@@ -403,10 +403,10 @@ class Environment():
         self.ori_log = ori_log
 
         # Chosen path taken from the pos_log
-        self.pos = 0
+        self.pos = np.array([[0], [0]])
 
         # Chosen oritations taken from ori_log
-        self.ori = 0
+        self.ori = np.array([0])
 
         # Codebooks
         self.W = W
@@ -440,9 +440,6 @@ class Environment():
         self.stepstart = 0
         self.path = 0
 
-        # What state we are in
-        self.state = np.array([0.0, 0, 0, 0, 0])
-
         # Number of earlier action in the state space
         self.n_earlier_actions = n_earlier_actions
 
@@ -457,6 +454,9 @@ class Environment():
 
         # Bool on whether noise should be added
         self.noise = noise
+
+        # Create start state
+        self._start_state()
 
     def create_reward_matrix(self):
 
