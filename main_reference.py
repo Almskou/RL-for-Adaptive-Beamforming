@@ -36,8 +36,8 @@ summary_writer_sub_2 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_2'
 summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3')
 
 # global parameters
-RUN = False
-VALIDATE = True
+RUN = False  # If true creates a new data set even if one exists
+VALIDATE = True  # If true runs the same chunks sequence each time
 
 
 # %% ---------- Functions ----------
@@ -61,20 +61,25 @@ def parser():
                         default="default", help=help_str)
 
     help_str = """Call if the reinforcement learning should part should be run"""
-    parser.add_argument('--DQN', action='store_false', help=help_str)
+    parser.add_argument('--DQN', action='store_true', help=help_str)
+
+    help_str = """Set threshold"""
+    parser.add_argument('--thr', type=float,
+                        default=0.9, help=help_str)
 
     return parser.parse_args()
 
 
 # %% ---------- Main ----------
 if __name__ == "__main__":
-    threshold = 0.9
-
     # debug: [plot, print, savefig]
     debug = [False, False, True]
 
     # Parse arguments
     args = parser()
+
+    # Threshold
+    threshold = args.thr
 
     # Load test_parameters configuration
     with open(f'Test_parameters/{args.test_par}.json', 'r') as fp:
@@ -150,13 +155,13 @@ if __name__ == "__main__":
     noise = settings["noise"]
 
     # Number of earlier actions in the state space
-    n_earlier_actions = 3
-
-    # Number of earlier positions (included current pos) in the state space
-    n_earlier_pos = 3
+    n_earlier_actions = settings["DQN"]["State"][0]
 
     # Number of earlier oritations (included current ori) in the state space
-    n_earlier_ori = 3
+    n_earlier_ori = settings["DQN"]["State"][1]
+
+    # Number of earlier positions (included current pos) in the state space
+    n_earlier_pos = settings["DQN"]["State"][2]
 
     # ----------- Extracting variables from case -----------
     # Load Scenario configuration
@@ -274,14 +279,17 @@ if __name__ == "__main__":
     # Intiliase agent
     agent = Simple_Agent(env.action_space_n, threshold)
 
-    total_rewards = np.empty(epochs)
-
     print("Prep work done")
 
+    # Initialise the step counter
     step = 1
 
     # Buffer for saving the x last y-db mis-alignment prob.
-    mis_prob_buffer = np.array([[], [], [], [], []])
+    mis_prob_buffer = np.array([])
+
+    # Buffers for saving values
+    save_mis_all = np.zeros(chunksize*epochs)
+    save_avg_mis_all = np.zeros(chunksize*epochs)
 
     # Load validation set
     if VALIDATE:
@@ -311,37 +319,30 @@ if __name__ == "__main__":
 
             _, reward, done, max_reward, min_reward, mean_reward, reward_noise_free = env.step(action)
 
-            # Calculate the miss alignment prob. and add to the buffer
-            mis_prob_buffer = np.insert(mis_prob_buffer, 0,
-                                        [reward_noise_free < max_reward - 3,
-                                         reward_noise_free < max_reward - 5,
-                                         reward_noise_free < max_reward - 7,
-                                         reward_noise_free < max_reward - 9,
-                                         max_reward - reward_noise_free], axis=1)
+            # Calculate the misalignment and add to the buffer
+            mis_prob_buffer = np.insert(mis_prob_buffer, 0, [max_reward - reward_noise_free])
 
             mis_prob_all.append(max_reward - reward_noise_free)
+            save_mis_all[step-1] = max_reward - reward_noise_free
 
             # Ensure that the buffer only contain the latest 1000 steps
             if np.size(mis_prob_buffer, axis=1) > 1000:
                 mis_prob_buffer = np.delete(mis_prob_buffer, -1, axis=1)
 
             mis_prob = np.mean(mis_prob_buffer, axis=1)
+            save_avg_mis_all[step-1] = mis_prob[4]
 
             # Log the reward
             with summary_writer.as_default():
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
                 tf.summary.scalar('Mis-alignment-avg', mis_prob[4], step=step,
                                   description="Average Mis-alignment in [db] for the last 1000 steps")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
             with summary_writer_sub_2.as_default():
                 tf.summary.scalar('Step_reward', min_reward, step=step, description="Mean reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[2], step=step, description="7 dB")
             with summary_writer_sub_3.as_default():
                 tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
 
             # Get the distance to the nearest BS
             BS_dist = np.min(np.linalg.norm(env.pos_log[path_idx]
@@ -350,6 +351,7 @@ if __name__ == "__main__":
             # Calculate the normalise reward
             norm_reward = (10*np.log10(P_t * (lambda_**2)/((4*np.pi*BS_dist)**2))) / reward
 
+            # Update step counter
             step += 1
 
             if done:
@@ -359,3 +361,7 @@ if __name__ == "__main__":
         with summary_writer.as_default():
             tf.summary.scalar('Mis-alignment-avg-episode', np.mean(mis_prob_all), step=epoch,
                               description="Average Mis-alignment in [db] for an episode")
+
+    # Save the values
+    np.save(f"logs/{name}_mis_alignment", save_mis_all)
+    np.save(f"logs/{name}_avg_mis_alignment", save_avg_mis_all)

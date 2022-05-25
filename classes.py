@@ -2,6 +2,7 @@
 """
 @author: Nicolai Almskou & Victor Nissen
 """
+
 import numpy as np
 import math
 import random
@@ -12,6 +13,10 @@ import helpers
 
 
 class Track():
+    """
+    Class for creating the mobility patterns described in the report
+    """
+
     def __init__(self, case, delta_t, r_lim, intersite, debug_print=False):
         self.delta_t = delta_t
         self.env = case["environment"]
@@ -49,6 +54,9 @@ class Track():
         self.pos_bs = self.get_bs_pos()
 
     def get_bs_pos(self):
+        """
+        Calculate the posistion of the base stations based on the intersite distance
+        """
         # Length to b and d on the x-axis
         hex_bd = np.sqrt((self.intersite_bs**2) - (self.intersite_bs/2)**2)
 
@@ -67,11 +75,17 @@ class Track():
         return np.array([a, b, c, d]).T
 
     def set_acceleration(self, acc):
+        """
+        Sets the acceleration taken from a gaussian distribution.
+        """
         if acc:
             return np.random.rand() * self.acc_max + 0.00001
         return - (np.random.rand() * self.dec_max + 0.00001)
 
     def change_velocity(self):
+        """
+        Change the velocity to either a predefined velocity or a random between min and max.
+        """
         p_uni = np.random.rand()
         p_pref = self.pvpref[0]
         l_pref = len(self.pvpref)
@@ -89,6 +103,10 @@ class Track():
         return np.random.rand() * (self.vmax - self.vmin) + self.vmin
 
     def update_velocity(self, v):
+        """
+        Updates the velocity based on the current velocity and the acceleration.
+        """
+        # Checks if the velocity should change
         if np.random.rand() < self.pvchange:
             self.v_target = self.change_velocity()
 
@@ -103,6 +121,7 @@ class Track():
         # Update the velocity bases on target and accelation
         v = v + self.a * self.delta_t
 
+        # If the velocity has reached the target velocity set the acceleration to 0.
         if (((self.a > 0) and (v > self.v_target)) or
                 ((self.a < 0) and (v < self.v_target))):
             v = self.v_target
@@ -198,6 +217,9 @@ class Track():
         return phi
 
     def initialise_run(self):
+        """
+        Find the starting values for a new run which depends on the chosen scenario.
+        """
         # Velocity
         self.v_target = self.change_velocity()
         v = self.v_target
@@ -248,6 +270,9 @@ class Track():
         return v, phi, pos
 
     def run(self, N):
+        """
+        Creates the track and return a matix with positions
+        """
         # Create a empty array for the velocities
         v = np.zeros([N])
         phi = np.zeros([N])
@@ -379,7 +404,6 @@ class Simple_Agent():
         self.action = random.randrange(self.num_actions)
 
     def select_action(self, norm_reward):
-
         # Take a new action if the norm. reward is less than set threshold
         if norm_reward < self.threshold:
             self.action = random.randrange(self.num_actions)
@@ -506,14 +530,20 @@ class Environment():
         self.Reward_matrix = R
 
     def _get_reward(self, action):
+        """
+        Gets the reward from the precomputed reward matrix based on the action and convert it into decibel.
+        Returns the taken reward with noise if noise should be applied. Also return the max, min, mean and noiseless
+        reward.
+        """
 
         R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
         R_db = 10*np.log10(np.absolute(R)**2)
 
         R_action = R[action]
         R_action_db = R_db[action]
+
         if self.noise:
-            # 8.923e-07 = sqrt(Pn/2)
+            # 28.217e-06 = sqrt(Pn/2)
             noise_complex = 1*np.random.normal(0, 28.217e-06, 1) + 1j*np.random.normal(0, 28.217e-06, 1)
             R_action_noise = (10*np.log10(np.absolute(R_action + noise_complex)**2))[0]
         else:

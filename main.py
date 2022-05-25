@@ -3,7 +3,6 @@
 @author: Nicolai Almskou & Victor Nissen
 """
 
-
 # %% ---------- Imports ----------
 import itertools
 import numpy as np
@@ -37,8 +36,8 @@ summary_writer_sub_2 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_2'
 summary_writer_sub_3 = tf.summary.create_file_writer(logdir=f'logs/{name}/sub_3')
 
 # global parameters
-RUN = False
-VALIDATE = True
+RUN = False  # If true creates a new data set even if one exists
+VALIDATE = True  # If true runs the same chunks sequence each time
 
 
 # %% ---------- Functions ----------
@@ -263,12 +262,8 @@ if __name__ == "__main__":
                       n_earlier_pos=n_earlier_pos,
                       n_earlier_ori=n_earlier_ori)
 
+    # precompute the reward matrix
     env.create_reward_matrix()
-
-    """
-    Notice that we are not using any function to make the states discrete here as DQN
-    can handle discrete state spaces.
-    """
 
     # Initialize Class variables
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
@@ -285,16 +280,16 @@ if __name__ == "__main__":
     # Copy weights of policy network to target network
     copy_weights(policy_net, target_net)
 
+    # Sets what optimiser the NN is going to use
     optimizer = tf.optimizers.Adam(lr)
-
-    total_rewards = np.empty(epochs)
 
     print("Prep work done")
 
+    # Initialise the step counter
     step = 1
 
     # Buffer for saving the x last y-db mis-alignment prob.
-    mis_prob_buffer = np.array([[], [], [], [], []])
+    mis_prob_buffer = np.array([])
 
     # Buffers for saving values
     save_mis_all = np.zeros(chunksize*epochs)
@@ -325,13 +320,8 @@ if __name__ == "__main__":
             action = agent.select_action(state, policy_net)
             next_state, reward, done, max_reward, min_reward, mean_reward, reward_noise_free = env.step(action)
 
-            # Calculate the miss alignment prob. and add to the buffer
-            mis_prob_buffer = np.insert(mis_prob_buffer, 0,
-                                        [reward_noise_free < max_reward - 3,
-                                         reward_noise_free < max_reward - 5,
-                                         reward_noise_free < max_reward - 7,
-                                         reward_noise_free < max_reward - 9,
-                                         max_reward - reward_noise_free], axis=1)
+            # Calculate the misalignment and add to the buffer
+            mis_prob_buffer = np.insert(mis_prob_buffer, 0, [max_reward - reward_noise_free])
 
             mis_prob_ep.append(max_reward - reward_noise_free)
             save_mis_all[step-1] = max_reward - reward_noise_free
@@ -340,29 +330,29 @@ if __name__ == "__main__":
             if np.size(mis_prob_buffer, axis=1) > 1000:
                 mis_prob_buffer = np.delete(mis_prob_buffer, -1, axis=1)
 
+            # Log the misalignment value
             mis_prob = np.mean(mis_prob_buffer, axis=1)
             save_avg_mis_all[step-1] = mis_prob[4]
 
             # Log the reward
             with summary_writer.as_default():
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[0], step=step, description="3 dB")
                 tf.summary.scalar('Mis-alignment-avg', mis_prob[4], step=step,
                                   description="Average Mis-alignment in [db] for the last 1000 steps")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[1], step=step, description="5 dB")
             with summary_writer_sub_2.as_default():
                 tf.summary.scalar('Step_reward', min_reward, step=step, description="Mean reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[2], step=step, description="7 dB")
             with summary_writer_sub_3.as_default():
                 tf.summary.scalar('Step_reward', mean_reward, step=step, description="Min reward")
-                # tf.summary.scalar('Mis-alignment', mis_prob[3], step=step, description="9 dB")
 
+            # Update step counter
             step += 1
 
             # Store the experience in Replay memory
             memory.push(Experience(state, action, next_state, reward, done))
+
+            # Update state
             state = next_state
 
             if memory.can_provide_sample(batch_size):
@@ -398,6 +388,7 @@ if __name__ == "__main__":
             else:
                 loss = 0
 
+            # Log the loss value
             save_loss_all[step-2] = loss
 
             with summary_writer.as_default():
@@ -415,7 +406,7 @@ if __name__ == "__main__":
             tf.summary.scalar('Mis-alignment-avg-episode', np.mean(mis_prob_ep), step=epoch,
                               description="Average Mis-alignment in [db] for an episode")
 
-        # Save the values
-        np.save(f"logs/{name}_mis_alignment", save_mis_all)
-        np.save(f"logs/{name}_avg_mis_alignment", save_avg_mis_all)
-        np.save(f"logs/{name}_loss", save_loss_all)
+    # Save the values
+    np.save(f"logs/{name}_mis_alignment", save_mis_all)
+    np.save(f"logs/{name}_avg_mis_alignment", save_avg_mis_all)
+    np.save(f"logs/{name}_loss", save_loss_all)

@@ -3,12 +3,12 @@
     "environment":      "Urban",
     "fc":               28e9,
     "receiver":         {
-                        "antennea": 16,
-                        "beams": 16
+                        "antennea": 4,
+                        "beams": 8
                         },
     "transmitter":      {
-                        "antennea": 32,
-                        "beams": 32
+                        "antennea": 8,
+                        "beams": 16
                         },
     "P_t":              1000,
     "vmax":             2,

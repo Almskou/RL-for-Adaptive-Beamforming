@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: Dennis Sand, Nicolai Almskou,
-         Peter Fisker & Victor Nissen
+@author: Nicolai Almskou & Victor Nissen
 """
 
 # %% Imports
@@ -47,20 +46,6 @@ def codebook(Nb, N):
     return Cb
 
 
-def angle_to_beam(AoA, W):
-    beam_tmp = np.zeros([len(W), 1])
-    beam = np.zeros([len(AoA), 1])
-
-    for i in range(len(AoA)):
-        A = (1 / np.sqrt(len(W[0, :]))) * np.exp(-1j * np.pi * np.cos(AoA[i]) * np.arange(0, len(W[0, :])))
-        for j in range(len(W)):
-            # The gain is found by multiplying the code-page with the steering vector
-            beam_tmp[j] = np.abs(np.conjugate(W[j, :]).T @ A)
-
-        beam[i] = np.argmax(beam_tmp)
-    return beam
-
-
 def get_local_angle(AoA, Ori):
     """
     Transforms angles in global Quadriga coordinate system,
@@ -79,59 +64,12 @@ def get_local_angle(AoA, Ori):
     return AoA_Local
 
 
-def discrete_ori(Ori, N):
-    angles = [((n + 1) * np.pi) / N for n in range(N - 1)]
-
-    Ori_abs = np.abs(Ori)
-    Ori_discrete = np.zeros(np.shape(Ori))
-
-    for n in range(1, N - 1):
-        Ori_discrete[np.logical_and(Ori_abs > angles[n - 1],
-                                    Ori_abs <= angles[n])] = n
-
-    Ori_discrete[Ori_abs > angles[-1:]] = N - 1
-
-    return Ori_discrete
-
-
-def discrete_angle(pos, N):
-    Angle = np.arctan2(pos[1, :], pos[0, :])
-    # Angle: [0 deg, 360 deg] in radians
-    Angle[Angle < 0] += 2 * np.pi
-
-    # Discrete angles
-    angles = [(((n + 1) * 2 * np.pi) / N) for n in range(N - 1)]
-
-    Angle_discrete = np.zeros(np.shape(Angle))
-
-    for n in range(1, N - 1):
-        Angle_discrete[np.logical_and(Angle > angles[n - 1],
-                                      Angle <= angles[n])] = n
-
-    Angle_discrete[Angle > angles[-1:]] = N - 1
-
-    return Angle_discrete
-
-
-def discrete_dist(pos, N, r_lim):
-    pos_norm = np.linalg.norm(pos[0:2, :], axis=0)
-    base = int(r_lim / N)
-    return (base * np.round(pos_norm / base)).astype(int)
-
-
-def misalignment_prob(R_db, R_max_db, x_db):
-    # Create zeros vector with shape of R
-    tmp = np.zeros(np.shape(R_db))
-
-    # All places where the R values is less
-    # than R_max - x_db is set to 1.
-    tmp[R_db < R_max_db - x_db] = 1
-
-    # Return the x_db misalignment probability
-    return np.mean(tmp)
-
-
 def noisy_ori(ori_vector):
+    """
+    Takes and vector with orientation and add noise to it by using a moving average function
+    :param ori_vector: Vector with all the orientation values
+    :return: Vector with all the orientations values with added noise
+    """
     # "smooting" factor in random walk filter
     K = 21
     new_orientation = np.empty_like(ori_vector)
@@ -303,6 +241,9 @@ def get_data(RUN, ENGINE, case, multi_user, pos_log_name, data_name, para):
 
 @njit()
 def jit_H(beta, alpha_rx, alpha_tx, Nr, Nt):
+    """
+    Calculate the channel matrix
+    """
     H = np.zeros((Nr, Nt), dtype=np.complex128)
     for i in range(len(beta)):
         H += beta[i] * np.dot(alpha_rx[i, :].T, np.conjugate(alpha_tx[i, :]))
@@ -313,6 +254,9 @@ def jit_H(beta, alpha_rx, alpha_tx, Nr, Nt):
 
 @njit()
 def jit_Reward(H, F, W, P_t):
+    """
+    Calculate the recieved reward using the system model
+    """
     R = np.zeros((len(F[:, 0]), len(W[:, 0])), dtype=np.complex128)
     # Calculate the reward
     for p in range(len(F[:, 0])):  # p - transmitter
