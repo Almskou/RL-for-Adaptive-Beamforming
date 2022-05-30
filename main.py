@@ -156,6 +156,15 @@ if __name__ == "__main__":
     # Number of earlier positions (included current pos) in the state space
     n_earlier_pos = settings["DQN"]["State"][2]
 
+    # Number of earlier rewards in the state space
+    n_earler_rewards = settings["DQN"]["State"][3]
+
+    # Should there be an embedding layer
+    em = settings["Embed"]["Embed"]
+
+    # Output dim of embedding layer
+    em_out_dim = settings["Embed"]["out_dim"]
+
     # ----------- Extracting variables from case -----------
     # Load Scenario configuration
     with open(f'Cases/{CASE}.json', 'r') as fp:
@@ -201,7 +210,7 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if not args.DQN:
+    if args.DQN:
         sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
@@ -260,7 +269,8 @@ if __name__ == "__main__":
                       ori_log=Orientation,
                       n_earlier_actions=n_earlier_actions,
                       n_earlier_pos=n_earlier_pos,
-                      n_earlier_ori=n_earlier_ori)
+                      n_earlier_ori=n_earlier_ori,
+                      n_earler_rewards=n_earler_rewards)
 
     # precompute the reward matrix
     env.create_reward_matrix()
@@ -274,8 +284,10 @@ if __name__ == "__main__":
     Experience = namedtuple('Experience', ['states', 'actions', 'rewards', 'next_states', 'dones'])
 
     # Initialize the policy and target network
-    policy_net = Model(len(env.state), hidden_units, env.action_space_n)
-    target_net = Model(len(env.state), hidden_units, env.action_space_n)
+    policy_net = Model(len(env.state), hidden_units, env.action_space_n,
+                       embed=em, n_earlier_actions=n_earlier_actions, output_dim=em_out_dim)
+    target_net = Model(len(env.state), hidden_units, env.action_space_n,
+                       embed=em, n_earlier_actions=n_earlier_actions, output_dim=em_out_dim)
 
     # Copy weights of policy network to target network
     copy_weights(policy_net, target_net)
@@ -327,17 +339,17 @@ if __name__ == "__main__":
             save_mis_all[step-1] = max_reward - reward_noise_free
 
             # Ensure that the buffer only contain the latest 1000 steps
-            if np.size(mis_prob_buffer, axis=1) > 1000:
-                mis_prob_buffer = np.delete(mis_prob_buffer, -1, axis=1)
+            if np.size(mis_prob_buffer) > 1000:
+                mis_prob_buffer = np.delete(mis_prob_buffer, -1)
 
             # Log the misalignment value
-            mis_prob = np.mean(mis_prob_buffer, axis=1)
-            save_avg_mis_all[step-1] = mis_prob[4]
+            mis_prob = np.mean(mis_prob_buffer)
+            save_avg_mis_all[step-1] = mis_prob
 
             # Log the reward
             with summary_writer.as_default():
                 tf.summary.scalar('Step_reward', reward, step=step, description="Taken reward")
-                tf.summary.scalar('Mis-alignment-avg', mis_prob[4], step=step,
+                tf.summary.scalar('Mis-alignment-avg', mis_prob, step=step,
                                   description="Average Mis-alignment in [db] for the last 1000 steps")
             with summary_writer_sub_1.as_default():
                 tf.summary.scalar('Step_reward', max_reward, step=step, description="Max reward")

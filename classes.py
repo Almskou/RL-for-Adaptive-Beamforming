@@ -314,10 +314,20 @@ class Model(tf.keras.Model):
     Subclassing a multi-layered NN using Keras from Tensorflow
     """
 
-    def __init__(self, num_states, hidden_units, num_actions):
+    def __init__(self, num_states, hidden_units, num_actions, embed=False, n_earlier_actions=3, output_dim=1):
         super(Model, self).__init__()  # Used to run the init method of the parent class
 
-        self.input_layer = kl.InputLayer(input_shape=(num_states,))
+        self.embed = embed
+
+        if self.embed:
+            self.n_earlier_actions = n_earlier_actions
+
+            self.input_layer = kl.InputLayer(input_shape=(num_states-self.n_earlier_actions,))
+
+            self.embedding_layer = kl.Embedding(input_dim=num_actions, output_dim=output_dim, input_length=1)
+
+        else:
+            self.input_layer = kl.InputLayer(input_shape=(num_states,))
 
         self.hidden_layers = []
 
@@ -328,7 +338,13 @@ class Model(tf.keras.Model):
 
     @tf.function
     def call(self, inputs, **kwargs):
-        x = self.input_layer(inputs)
+        if self.embed:
+            x1 = self.input_layer(inputs[:, self.n_earlier_actions:])
+            x2 = kl.Flatten()(self.embedding_layer(inputs[:, :self.n_earlier_actions]))
+            x = kl.Concatenate()([x1, x2])
+        else:
+            x = self.input_layer(inputs)
+
         for layer in self.hidden_layers:
             x = layer(x)
         output = self.output_layer(x)
@@ -419,7 +435,7 @@ class Environment():
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
                  r_r, r_t, fc, P_t, chunksize, noise,
                  AoA, AoD, Beta, pos_log, ori_log,
-                 n_earlier_actions, n_earlier_pos, n_earlier_ori):
+                 n_earlier_actions, n_earlier_pos, n_earlier_ori, n_earler_rewards):
         self.AoA = AoA
         self.AoD = AoD
         self.Beta = Beta
@@ -472,6 +488,9 @@ class Environment():
 
         # Number of earlier oritations (included current ori) in the state space
         self.n_earlier_ori = n_earlier_ori
+
+        # Number of earlier rewards in the state space
+        self.n_earler_rewards = n_earler_rewards
 
         # Reward Matrix
         self.Reward_matrix = 0
@@ -570,42 +589,63 @@ class Environment():
         # y:
         self.state = np.append(self.state, [self.pos[1, 0] + np.zeros(self.n_earlier_pos)])
 
+        # Add rewards to the start space. Initialise with 0
+        self.state = np.append(self.state, [0 + np.zeros(self.n_earler_rewards)])
+
         return self.state
 
-    def _state_update(self, action):
+    def _state_update(self, action, reward):
 
+        idx = 0
         # ACTION
         if self.n_earlier_actions > 0:
             # Insert new action in the front of the array
-            state_tmp = np.insert(self.state, 0, action)
+            state_tmp = np.insert(self.state, idx, action)
+
+            idx = self.n_earlier_actions
 
             # Remove the fourth element (The oldest action)
-            self.state = np.delete(state_tmp, self.n_earlier_actions)
+            self.state = np.delete(state_tmp, idx)
 
         # ORITATION
         if self.n_earlier_ori > 0:
             # Insert new action in the front of the array
-            state_tmp = np.insert(self.state, self.n_earlier_actions, self.ori[self.stepnr])
+            state_tmp = np.insert(self.state, idx, self.ori[self.stepnr])
+
+            idx = idx + self.n_earlier_ori
 
             # Remove the fourth element (The oldest action)
-            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori)
+            self.state = np.delete(state_tmp, idx)
 
         # POSISTION
         if self.n_earlier_pos > 0:
             # x:
             # Insert new action in the front of the array
-            state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori, self.pos[0, self.stepnr])
+            state_tmp = np.insert(self.state, idx, self.pos[0, self.stepnr])
+
+            idx = idx + self.n_earlier_pos
 
             # Remove the fourth element (The oldest action)
-            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos)
+            self.state = np.delete(state_tmp, idx)
 
             # y:
             # Insert new action in the front of the array
-            state_tmp = np.insert(self.state, self.n_earlier_actions + self.n_earlier_ori + self.n_earlier_pos,
-                                  self.pos[1, self.stepnr])
+            state_tmp = np.insert(self.state, idx, self.pos[1, self.stepnr])
+
+            idx = idx + self.n_earlier_pos
 
             # Remove the fourth element (The oldest action)
-            self.state = np.delete(state_tmp, self.n_earlier_actions + self.n_earlier_ori + 2*self.n_earlier_pos)
+            self.state = np.delete(state_tmp, idx)
+
+        # REWARD
+        if self.n_earler_rewards > 0:
+            # Insert new action in the front of the array
+            state_tmp = np.insert(self.state, idx, reward)
+
+            idx = idx + self.n_earler_rewards
+
+            # Remove the fourth element (The oldest action)
+            self.state = np.delete(state_tmp, idx)
 
         return self.state
 
@@ -618,7 +658,7 @@ class Environment():
         self.stepnr += 1
 
         # Get the next_state
-        next_state = self._state_update(action)
+        next_state = self._state_update(action, reward)
 
         # See if episode is finished
         if self.stepnr == self.nstep - 1:
