@@ -29,7 +29,7 @@
 						},
     "noise":            true,
 	"Embed":			{
-						"Embed":			true,
-						"out_dim":			10
+						"Embed":			false,
+						"out_dim":			1
 						}
 }
