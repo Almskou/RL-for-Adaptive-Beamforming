@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     plots.positions(pos_log, pos_bs, r_lim, show=debug[0], save=debug[2])
 
-    if args.DQN:
+    if not args.DQN:
         sys.exit("--DQN not called - stopping")
 
     # ----------- Extract data from Quadriga simulation -----------
