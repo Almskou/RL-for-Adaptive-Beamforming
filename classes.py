@@ -433,7 +433,7 @@ class Environment():
     """
 
     def __init__(self, W, F, Nt, Nr, Nbs, Nbt, Nbr,
-                 r_r, r_t, fc, P_t, chunksize, noise,
+                 r_r, r_t, fc, P_t, chunksize, noise, pre,
                  AoA, AoD, Beta, pos_log, ori_log,
                  n_earlier_actions, n_earlier_pos, n_earlier_ori, n_earler_rewards):
         self.AoA = AoA
@@ -501,7 +501,13 @@ class Environment():
         # Create start state
         self._start_state()
 
-    def create_reward_matrix(self):
+        # Flag whether it should precompute or not the reward matrix
+        self.pre = pre
+
+        if pre:
+            self.pre_create_reward_matrix()
+
+    def pre_create_reward_matrix(self):
 
         # Number of episodes / mobility patterns
         npaths = len(self.AoA)
@@ -548,6 +554,43 @@ class Environment():
 
         self.Reward_matrix = R
 
+    def create_reward_matrix(self, path, step):
+        # Initialise the matrix
+        # R = np.zeros((npaths, nsteps, self.Nbs*len(self.F[:, 0])*len(self.W[:, 0])), dtype=np.complex128)
+        R = np.zeros((self.Nbs, len(self.F[:, 0]), len(self.W[:, 0])), dtype=np.complex128)
+
+        for b in range(self.Nbs):
+            # Get channel parameters
+            beta = self.Beta[path][0][b, step, :]
+
+            # Calculate steering vectors
+            alpha_rx = helpers.steering_vectors2d(direction=-1, theta=self.AoA[path][b, step, :],
+                                                  r=self.r_r, lambda_=self.lambda_)
+            alpha_tx = helpers.steering_vectors2d(direction=1, theta=self.AoD[path][0][b, step, :],
+                                                  r=self.r_t, lambda_=self.lambda_)
+
+            # Make sure it is the right type of data
+            alpha_rx = np.array(alpha_rx, np.csingle)
+            alpha_tx = np.array(alpha_tx, np.csingle)
+            beta = np.array(beta, np.csingle)
+
+            # Add another dimision with size 1 to be able to do a dot product between them when using Numba
+            alpha_rx = alpha_rx.reshape((len(alpha_rx), 1, self.Nr))
+            alpha_tx = alpha_tx.reshape((len(alpha_tx), 1, self.Nt))
+
+            # Calculate channel matrix H
+            H = helpers.jit_H(beta, alpha_rx, alpha_tx, self.Nr, self.Nt)
+
+            # Make sure it is the right type of data
+            self.W = np.array(self.W, np.csingle)
+            self.F = np.array(self.F, np.csingle)
+            H = np.array(H, np.csingle)
+
+            # Calculate the reward
+            R[b] = helpers.jit_Reward(H, self.F, self.W, self.P_t)
+
+        return R.flatten()
+
     def _get_reward(self, action):
         """
         Gets the reward from the precomputed reward matrix based on the action and convert it into decibel.
@@ -555,7 +598,11 @@ class Environment():
         reward.
         """
 
-        R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
+        if self.pre:
+            R = self.Reward_matrix[self.path, self.stepstart + self.stepnr]
+        else:
+            R = self.create_reward_matrix(self.path, self.stepstart + self.stepnr)
+
         R_db = 10*np.log10(np.absolute(R)**2)
 
         R_action = R[action]

@@ -63,6 +63,9 @@ def parser():
     help_str = """Call if the reinforcement learning should part should be run"""
     parser.add_argument('--DQN', action='store_true', help=help_str)
 
+    help_str = """Call if the reward matrix should be precomputed"""
+    parser.add_argument('--pre', action='store_true', help=help_str)
+
     return parser.parse_args()
 
 
@@ -77,6 +80,9 @@ if __name__ == "__main__":
     # Load test_parameters configuration
     with open(f'Test_parameters/{args.test_par}.json', 'r') as fp:
         settings = json.load(fp)
+
+    # Flag whether it should precompute
+    precompute_R = args.pre
 
     # ----------- Channel Simulation Parameters -----------
     # Name of the data file afte "data_" and "data_pos_"
@@ -270,10 +276,8 @@ if __name__ == "__main__":
                       n_earlier_actions=n_earlier_actions,
                       n_earlier_pos=n_earlier_pos,
                       n_earlier_ori=n_earlier_ori,
-                      n_earler_rewards=n_earler_rewards)
-
-    # precompute the reward matrix
-    env.create_reward_matrix()
+                      n_earler_rewards=n_earler_rewards,
+                      pre=precompute_R)
 
     # Initialize Class variables
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
